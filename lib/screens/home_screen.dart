@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../main.dart';
 import '../services/api_service.dart';
 import 'setup_screen.dart';
 
@@ -42,18 +43,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _disconnect() async {
+    final l  = langNotifier.lang;
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF060A14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Disconnect?', style: GoogleFonts.spaceGrotesk(color: Colors.white, fontWeight: FontWeight.w700)),
-        content: Text('Bot disconnect වෙනවා.', style: GoogleFonts.spaceGrotesk(color: Colors.white70)),
+        title: Text(l.disconnectTitle,
+          style: GoogleFonts.spaceGrotesk(
+            color: Colors.white, fontWeight: FontWeight.w700)),
+        content: Text(l.disconnectBody,
+          style: GoogleFonts.spaceGrotesk(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.spaceGrotesk(color: Colors.white54))),
-          TextButton(onPressed: () => Navigator.pop(context, true),
-            child: Text('Disconnect', style: GoogleFonts.spaceGrotesk(color: const Color(0xFFFF4757)))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l.cancel,
+              style: GoogleFonts.spaceGrotesk(color: Colors.white54))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l.disconnect,
+              style: GoogleFonts.spaceGrotesk(color: const Color(0xFFFF4757)))),
         ],
       ),
     );
@@ -62,7 +71,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final p = await SharedPreferences.getInstance();
     await p.remove('phone');
     if (!mounted) return;
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SetupScreen()));
+    Navigator.pushReplacement(
+      context, MaterialPageRoute(builder: (_) => const SetupScreen()));
   }
 
   String _fmt(int? s) {
@@ -81,166 +91,263 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  String get _label {
-    switch (_status) {
-      case 'connected':    return '● Bot Active';
-      case 'pairing':      return '○ Pairing...';
-      case 'connecting':   return '○ Connecting...';
-      case 'disconnected': return '○ Offline';
-      default:             return _status;
-    }
-  }
+  static const _featureColors = [
+    Color(0xFF25D366),
+    Color(0xFF00E5FF),
+    Color(0xFFA259FF),
+    Color(0xFFFFD93D),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF020408),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF030610), elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.all(10),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.asset('assets/icon.png'),
-          ),
-        ),
-        title: Text('UNITY-MD',
-          style: GoogleFonts.orbitron(fontSize: 16, fontWeight: FontWeight.w900,
-            letterSpacing: 3, foreground: Paint()..shader = const LinearGradient(
-              colors: [Color(0xFF25D366), Color(0xFF00E5FF)],
-            ).createShader(const Rect.fromLTWH(0,0,120,20)))),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white54),
-            onPressed: _load,
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white54),
-            color: const Color(0xFF060A14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            onSelected: (v) { if (v == 'dc') _disconnect(); },
-            itemBuilder: (_) => [
-              PopupMenuItem(value: 'dc', child: Row(children: [
-                const Icon(Icons.link_off, color: Color(0xFFFF4757), size: 18),
-                const SizedBox(width: 10),
-                Text('Disconnect', style: GoogleFonts.spaceGrotesk(color: Colors.white)),
-              ])),
+    return ListenableBuilder(
+      listenable: langNotifier,
+      builder: (_, __) {
+        final l = langNotifier.lang;
+        return Scaffold(
+          backgroundColor: const Color(0xFF020408),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF030610), elevation: 0,
+            leading: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFF25D366).withOpacity(0.3)),
+                ),
+                child: ClipOval(
+                  child: Image.asset('assets/icon.png', fit: BoxFit.cover)),
+              ),
+            ),
+            title: ShaderMask(
+              shaderCallback: (r) => const LinearGradient(
+                colors: [Color(0xFF25D366), Color(0xFF00E5FF)],
+              ).createShader(r),
+              child: Text('UNITY-MD',
+                style: GoogleFonts.orbitron(
+                  fontSize: 16, fontWeight: FontWeight.w900,
+                  letterSpacing: 3, color: Colors.white)),
+            ),
+            actions: [
+              // Language toggle
+              GestureDetector(
+                onTap: () => langNotifier.toggle(),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF060A14),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFF25D366).withOpacity(0.25)),
+                  ),
+                  child: Text(
+                    l.isSinhala ? '🇱🇰 SI' : '🇬🇧 EN',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10, color: const Color(0xFF25D366))),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded,
+                  color: Colors.white38, size: 20),
+                onPressed: _load,
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert,
+                  color: Colors.white38, size: 20),
+                color: const Color(0xFF060A14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+                onSelected: (v) { if (v == 'dc') _disconnect(); },
+                itemBuilder: (_) => [
+                  PopupMenuItem(value: 'dc',
+                    child: Row(children: [
+                      const Icon(Icons.link_off,
+                        color: Color(0xFFFF4757), size: 18),
+                      const SizedBox(width: 10),
+                      Text(l.disconnect,
+                        style: GoogleFonts.spaceGrotesk(color: Colors.white)),
+                    ])),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _load, color: const Color(0xFF25D366),
-        child: ListView(padding: const EdgeInsets.all(20), children: [
+          body: Stack(children: [
+            // Background glows
+            Positioned(top: -60, left: -60,
+              child: _glow(const Color(0xFF25D366), 200)),
+            Positioned(bottom: -60, right: -60,
+              child: _glow(const Color(0xFF00E5FF), 160)),
 
-          // ── Status card ───────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xFF060A14),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _col.withOpacity(0.25)),
-              boxShadow: [BoxShadow(color: _col.withOpacity(0.08), blurRadius: 20)],
-            ),
-            child: Column(children: [
-              Container(width: 12, height: 12,
-                decoration: BoxDecoration(color: _col, shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: _col.withOpacity(0.5), blurRadius: 8, spreadRadius: 2)]),
-              ).animate(onPlay: (c) => c.repeat())
-                  .scaleXY(end: 1.4, duration: 800.ms).then().scaleXY(end: 1.0, duration: 800.ms),
-              const SizedBox(height: 12),
-              Text(_label, style: GoogleFonts.spaceGrotesk(
-                fontSize: 18, fontWeight: FontWeight.w800, color: _col)),
-              const SizedBox(height: 4),
-              Text('+${widget.phone}',
-                style: GoogleFonts.jetBrainsMono(fontSize: 13, color: Colors.white38, letterSpacing: 1)),
-            ]),
-          ).animate().fadeIn().slideY(begin: -0.1),
+            RefreshIndicator(
+              onRefresh: _load, color: const Color(0xFF25D366),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+                children: [
 
-          const SizedBox(height: 14),
+                  // ── Status card ────────────────────────────────
+                  _statusCard(l),
+                  const SizedBox(height: 14),
 
-          // ── Stats ─────────────────────────────────────────────
-          Row(children: [
-            _stat('⏱️', 'Uptime', _fmt(_uptime)),
-            const SizedBox(width: 10),
-            _stat('⚡', 'Commands', '$_cmds+'),
-            const SizedBox(width: 10),
-            _stat('🛡️', 'Anti-Ban', 'ON'),
-          ]).animate().fadeIn(delay: 100.ms),
+                  // ── Stats row ──────────────────────────────────
+                  Row(children: [
+                    _stat('⏱️', l.uptime,   _fmt(_uptime)),
+                    const SizedBox(width: 10),
+                    _stat('⚡', l.commands, '$_cmds+'),
+                    const SizedBox(width: 10),
+                    _stat('🛡️', l.antiBan,  'ON'),
+                  ]).animate().fadeIn(delay: 100.ms),
 
-          const SizedBox(height: 22),
+                  const SizedBox(height: 24),
 
-          Text('FEATURES', style: GoogleFonts.jetBrainsMono(
-            fontSize: 10, letterSpacing: 3, color: const Color(0xFF4A5280))),
-          const SizedBox(height: 10),
+                  // ── Features heading ───────────────────────────
+                  Text(l.features,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10, letterSpacing: 3,
+                      color: const Color(0xFF4A5280))),
+                  const SizedBox(height: 12),
 
-          // ── Feature cards ─────────────────────────────────────
-          ...[
-            ('🤖', 'AI Mode', 'Gemini Pro powered', const Color(0xFF25D366)),
-            ('📥', 'Downloader', 'YT, TikTok, FB & more', const Color(0xFF00E5FF)),
-            ('🎮', 'Games', 'Fun group games', const Color(0xFFA259FF)),
-            ('⚙️', 'Settings', 'Configure via WhatsApp (.settings)', const Color(0xFFFFD93D)),
-          ].asMap().entries.map((e) {
-            final i = e.key; final v = e.value;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF060A14), borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: v.$4.withOpacity(0.12)),
+                  // ── Feature cards ──────────────────────────────
+                  ...l.featureCards.asMap().entries.map((e) {
+                    final i = e.key;
+                    final v = e.value;
+                    final c = _featureColors[i];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF060A14),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: c.withOpacity(0.12)),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 4),
+                        leading: Container(
+                          width: 44, height: 44,
+                          decoration: BoxDecoration(
+                            color: c.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: c.withOpacity(0.2)),
+                          ),
+                          child: Center(child: Text(v.$1,
+                            style: const TextStyle(fontSize: 20)))),
+                        title: Text(v.$2,
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 14, fontWeight: FontWeight.w700,
+                            color: Colors.white)),
+                        subtitle: Text(v.$3,
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 11, color: const Color(0xFF4A5280))),
+                        trailing: Icon(Icons.arrow_forward_ios_rounded,
+                          size: 13, color: c.withOpacity(0.4)),
+                      ),
+                    ).animate()
+                        .fadeIn(delay: Duration(milliseconds: 150 + i * 80))
+                        .slideX(begin: 0.05);
+                  }),
+
+                  const SizedBox(height: 16),
+
+                  // ── Tip ────────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF25D366).withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFF25D366).withOpacity(0.1)),
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.info_outline_rounded,
+                        color: Color(0xFF25D366), size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(l.menuTip,
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 12, color: Colors.white54, height: 1.5))),
+                    ]),
+                  ).animate().fadeIn(delay: 500.ms),
+                ],
               ),
-              child: ListTile(
-                leading: Container(width: 42, height: 42,
-                  decoration: BoxDecoration(color: v.$4.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12)),
-                  child: Center(child: Text(v.$1, style: const TextStyle(fontSize: 20)))),
-                title: Text(v.$2, style: GoogleFonts.spaceGrotesk(
-                  fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
-                subtitle: Text(v.$3, style: GoogleFonts.spaceGrotesk(
-                  fontSize: 11, color: const Color(0xFF4A5280))),
-                trailing: Icon(Icons.arrow_forward_ios, size: 13, color: v.$4.withOpacity(0.4)),
-              ),
-            ).animate().fadeIn(delay: Duration(milliseconds: 150 + i * 80)).slideX(begin: 0.05);
-          }),
-
-          const SizedBox(height: 16),
-
-          // ── Info ──────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF25D366).withOpacity(0.05),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF25D366).withOpacity(0.12)),
             ),
-            child: Row(children: [
-              const Icon(Icons.info_outline, color: Color(0xFF25D366), size: 18),
-              const SizedBox(width: 10),
-              Expanded(child: Text(
-                'WhatsApp ල .menu type කරලා all commands බලන්න.',
-                style: GoogleFonts.spaceGrotesk(fontSize: 12, color: Colors.white54, height: 1.5),
-              )),
-            ]),
-          ).animate().fadeIn(delay: 500.ms),
-
-          const SizedBox(height: 30),
-        ]),
-      ),
+          ]),
+        );
+      },
     );
+  }
+
+  Widget _statusCard(l) {
+    final label = l.statusLabel(_status);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [
+            _col.withOpacity(0.08),
+            const Color(0xFF060A14),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _col.withOpacity(0.2)),
+        boxShadow: [BoxShadow(
+          color: _col.withOpacity(0.07), blurRadius: 24, spreadRadius: 2)],
+      ),
+      child: Column(children: [
+        // Pulsing dot
+        Container(width: 12, height: 12,
+          decoration: BoxDecoration(
+            color: _col, shape: BoxShape.circle,
+            boxShadow: [BoxShadow(
+              color: _col.withOpacity(0.6),
+              blurRadius: 10, spreadRadius: 2)]),
+        ).animate(onPlay: (c) => c.repeat())
+            .scaleXY(end: 1.5, duration: 900.ms)
+            .then().scaleXY(end: 1.0, duration: 900.ms),
+
+        const SizedBox(height: 14),
+        Text(label,
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 19, fontWeight: FontWeight.w800, color: _col)),
+        const SizedBox(height: 4),
+        Text('+${widget.phone}',
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 13, color: Colors.white30, letterSpacing: 1)),
+      ]),
+    ).animate().fadeIn().slideY(begin: -0.1);
   }
 
   Widget _stat(String e, String l, String v) => Expanded(
     child: Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF060A14), borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF25D366).withOpacity(0.08)),
+        color: const Color(0xFF060A14),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF25D366).withOpacity(0.07)),
       ),
       child: Column(children: [
         Text(e, style: const TextStyle(fontSize: 18)),
-        const SizedBox(height: 4),
-        Text(v, style: GoogleFonts.jetBrainsMono(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
-        Text(l, style: GoogleFonts.spaceGrotesk(fontSize: 10, color: const Color(0xFF4A5280))),
+        const SizedBox(height: 5),
+        Text(v,
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
+        const SizedBox(height: 2),
+        Text(l,
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 10, color: const Color(0xFF4A5280))),
       ]),
+    ),
+  );
+
+  Widget _glow(Color c, double size) => Container(
+    width: size, height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: RadialGradient(
+        colors: [c.withOpacity(0.06), Colors.transparent]),
     ),
   );
 }

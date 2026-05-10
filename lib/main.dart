@@ -2,8 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'l10n.dart';
 import 'screens/splash_screen.dart';
 
+// ─── Language state ──────────────────────────────────────────────────────────
+class LangNotifier extends ChangeNotifier {
+  L10n _lang = L10n.en;
+  L10n get lang => _lang;
+
+  LangNotifier() { _load(); }
+
+  Future<void> _load() async {
+    final p = await SharedPreferences.getInstance();
+    _lang = L10n.fromCode(p.getString('lang'));
+    notifyListeners();
+  }
+
+  Future<void> toggle() async {
+    _lang = _lang.isSinhala ? L10n.en : L10n.si;
+    final p = await SharedPreferences.getInstance();
+    await p.setString('lang', _lang.code);
+    notifyListeners();
+  }
+}
+
+final langNotifier = LangNotifier();
+
+// ─── App ─────────────────────────────────────────────────────────────────────
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -16,23 +41,27 @@ void main() async {
 
 class UnityMdApp extends StatelessWidget {
   const UnityMdApp({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'UNITY-MD',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF020408),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF25D366),
-          secondary: Color(0xFF00E5FF),
-          surface: Color(0xFF060A14),
+    return ListenableBuilder(
+      listenable: langNotifier,
+      builder: (_, __) => MaterialApp(
+        title: 'UNITY-MD',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          brightness: Brightness.dark,
+          scaffoldBackgroundColor: const Color(0xFF020408),
+          colorScheme: const ColorScheme.dark(
+            primary: Color(0xFF25D366),
+            secondary: Color(0xFF00E5FF),
+            surface: Color(0xFF060A14),
+          ),
+          textTheme: GoogleFonts.spaceGroteskTextTheme(ThemeData.dark().textTheme),
+          useMaterial3: true,
         ),
-        textTheme: GoogleFonts.spaceGroteskTextTheme(ThemeData.dark().textTheme),
-        useMaterial3: true,
+        home: const SplashScreen(),
       ),
-      home: const SplashScreen(),
     );
   }
 }
