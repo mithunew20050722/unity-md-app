@@ -123,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ContactSheet(lang: langNotifier.lang),
+      builder: (_) => _ContactSheet(l: langNotifier.lang),
     );
   }
 
@@ -462,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen>
               size: 12, color: c.withOpacity(0.6))),
         ),
       ).animate()
-          .fadeIn(delay: Duration(milliseconds: 150 + i * 80))
+          .fadeIn(delay: Duration(milliseconds: 150 + (i as int) * 80))
           .slideX(begin: 0.06);
     }).toList();
 
@@ -692,7 +692,7 @@ class _ContactSheet extends StatelessWidget {
               onTap: () => _open(c.url),
             ),
           ).animate()
-              .fadeIn(delay: Duration(milliseconds: 100 + i * 100))
+              .fadeIn(delay: Duration(milliseconds: 100 + (i as int) * 100))
               .slideX(begin: 0.08);
         }),
 
