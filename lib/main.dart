@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'l10n.dart';
 import 'screens/splash_screen.dart';
 
-// ─── Language notifier ────────────────────────────────────────────────────────
 class LangNotifier extends ChangeNotifier {
   L10n _lang = L10n.en;
   L10n get lang => _lang;
@@ -31,9 +31,12 @@ class LangNotifier extends ChangeNotifier {
 
 final langNotifier = LangNotifier();
 
-// ─── App ──────────────────────────────────────────────────────────────────────
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Disable network font fetching — use cached/bundled only
+  GoogleFonts.config.allowRuntimeFetching = false;
+
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
@@ -52,23 +55,18 @@ class UnityMdApp extends StatelessWidget {
       builder: (_, __) => MaterialApp(
         title: 'UNITY-MD',
         debugShowCheckedModeBanner: false,
-        theme: _buildTheme(),
+        theme: ThemeData(
+          brightness: Brightness.dark,
+          scaffoldBackgroundColor: const Color(0xFF020408),
+          colorScheme: const ColorScheme.dark(
+            primary: Color(0xFF25D366),
+            secondary: Color(0xFF00E5FF),
+            surface: Color(0xFF060A14),
+          ),
+          useMaterial3: true,
+        ),
         home: const SplashScreen(),
       ),
-    );
-  }
-
-  ThemeData _buildTheme() {
-    return ThemeData(
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: const Color(0xFF020408),
-      colorScheme: const ColorScheme.dark(
-        primary: Color(0xFF25D366),
-        secondary: Color(0xFF00E5FF),
-        surface: Color(0xFF060A14),
-      ),
-      useMaterial3: true,
-      fontFamily: 'Roboto', // safe fallback — google_fonts used per-widget
     );
   }
 }
