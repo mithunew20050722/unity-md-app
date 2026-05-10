@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
@@ -14,27 +13,35 @@ class _Country {
 }
 
 const _countries = [
-  _Country('🇱🇰', 'Sri Lanka',     '94'),
-  _Country('🇮🇳', 'India',         '91'),
-  _Country('🇵🇰', 'Pakistan',      '92'),
-  _Country('🇧🇩', 'Bangladesh',    '880'),
-  _Country('🇬🇧', 'UK',            '44'),
-  _Country('🇺🇸', 'USA',           '1'),
-  _Country('🇦🇺', 'Australia',     '61'),
-  _Country('🇨🇦', 'Canada',        '1'),
-  _Country('🇩🇪', 'Germany',       '49'),
-  _Country('🇫🇷', 'France',        '33'),
-  _Country('🇸🇦', 'Saudi Arabia',  '966'),
-  _Country('🇦🇪', 'UAE',           '971'),
-  _Country('🇲🇾', 'Malaysia',      '60'),
-  _Country('🇸🇬', 'Singapore',     '65'),
-  _Country('🇮🇹', 'Italy',         '39'),
-  _Country('🇯🇵', 'Japan',         '81'),
-  _Country('🇰🇷', 'South Korea',   '82'),
-  _Country('🇧🇷', 'Brazil',        '55'),
-  _Country('🇿🇦', 'South Africa',  '27'),
-  _Country('🇳🇬', 'Nigeria',       '234'),
+  _Country('🇱🇰', 'Sri Lanka',    '94'),
+  _Country('🇮🇳', 'India',        '91'),
+  _Country('🇵🇰', 'Pakistan',     '92'),
+  _Country('🇧🇩', 'Bangladesh',   '880'),
+  _Country('🇬🇧', 'UK',           '44'),
+  _Country('🇺🇸', 'USA',          '1'),
+  _Country('🇦🇺', 'Australia',    '61'),
+  _Country('🇩🇪', 'Germany',      '49'),
+  _Country('🇸🇦', 'Saudi Arabia', '966'),
+  _Country('🇦🇪', 'UAE',          '971'),
+  _Country('🇲🇾', 'Malaysia',     '60'),
+  _Country('🇸🇬', 'Singapore',    '65'),
+  _Country('🇯🇵', 'Japan',        '81'),
+  _Country('🇰🇷', 'South Korea',  '82'),
+  _Country('🇧🇷', 'Brazil',       '55'),
+  _Country('🇿🇦', 'South Africa', '27'),
 ];
+
+// ─── Shared text style helpers ────────────────────────────────────────────────
+const _kLabel = TextStyle(
+  fontFamily: 'monospace', fontSize: 11,
+  letterSpacing: 3, color: Color(0xFF4A5280));
+
+const _kBody = TextStyle(
+  fontFamily: 'sans-serif', fontSize: 13,
+  color: Colors.white70, height: 1.6);
+
+const _kMono = TextStyle(
+  fontFamily: 'monospace', fontSize: 18, color: Colors.white);
 
 class SetupScreen extends StatefulWidget {
   final String? savedPhone;
@@ -45,18 +52,17 @@ class SetupScreen extends StatefulWidget {
 }
 
 class _SetupScreenState extends State<SetupScreen> {
-  final _ctrl    = TextEditingController();
-  _Country _country = _countries.first; // Sri Lanka default
-  String _step   = 'phone';
+  final _ctrl   = TextEditingController();
+  _Country _country = _countries.first;
+  String _step  = 'phone';
   String? _pairCode;
   String? _error;
-  bool _loading  = false;
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.savedPhone != null) {
-      // Try to detect country from saved phone
       final saved = widget.savedPhone!;
       for (final c in _countries) {
         if (saved.startsWith(c.code)) {
@@ -69,7 +75,7 @@ class _SetupScreenState extends State<SetupScreen> {
     }
     if (widget.pairCode != null) {
       _pairCode = widget.pairCode;
-      _step     = 'pairing';
+      _step = 'pairing';
       _poll(_fullPhone());
     }
   }
@@ -84,72 +90,62 @@ class _SetupScreenState extends State<SetupScreen> {
     final l     = langNotifier.lang;
     final local = _ctrl.text.replaceAll(RegExp(r'[^0-9]'), '');
     if (local.length < 6) { setState(() => _error = l.invalidPhone); return; }
-    final phone = '${_country.code}$local';
+    final phone = _fullPhone();
     setState(() { _loading = true; _error = null; });
     try {
       final res = await ApiService.register(phone);
+      if (!mounted) return;
       if (res['ok'] == true) {
         if (res['status'] == 'connected') {
-          await _save(phone);
-          if (!mounted) return;
-          _go(HomeScreen(phone: phone)); return;
+          await _save(phone); _go(HomeScreen(phone: phone)); return;
         }
         if (res['pairCode'] != null) {
-          setState(() {
-            _pairCode = res['pairCode'];
-            _step     = 'pairing';
-            _loading  = false;
-          });
+          setState(() { _pairCode = res['pairCode']; _step = 'pairing'; _loading = false; });
           _poll(phone); return;
         }
       }
-      setState(() {
-        _error   = res['error'] ?? 'Failed. Try again.';
-        _loading = false;
-      });
+      setState(() { _error = res['error'] ?? 'Failed. Try again.'; _loading = false; });
     } catch (_) {
-      setState(() { _error = l.serverError; _loading = false; });
+      if (mounted) setState(() { _error = l.serverError; _loading = false; });
     }
   }
 
   void _poll(String phone) async {
-    final l = langNotifier.lang;
     for (int i = 0; i < 60; i++) {
       await Future.delayed(const Duration(seconds: 3));
       if (!mounted) return;
       try {
         final st = await ApiService.status(phone);
         if (st['status'] == 'connected') {
-          await _save(phone);
-          if (!mounted) return;
-          _go(HomeScreen(phone: phone)); return;
+          await _save(phone); _go(HomeScreen(phone: phone)); return;
         }
       } catch (_) {}
     }
-    if (mounted) setState(() { _error = l.timeout; _step = 'phone'; });
+    if (mounted) setState(() { _error = langNotifier.lang.timeout; _step = 'phone'; });
   }
 
   Future<void> _save(String phone) async {
-    final p = await SharedPreferences.getInstance();
-    await p.setString('phone', phone);
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString('phone', phone);
+    } catch (_) {}
   }
 
-  void _go(Widget w) => Navigator.pushReplacement(
-      context, MaterialPageRoute(builder: (_) => w));
+  void _go(Widget w) {
+    if (!mounted) return;
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => w));
+  }
 
   void _copy() {
-    final l = langNotifier.lang;
-    Clipboard.setData(ClipboardData(
-        text: _pairCode?.replaceAll('-', '') ?? ''));
+    Clipboard.setData(ClipboardData(text: _pairCode?.replaceAll('-', '') ?? ''));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(l.copied,
-          style: GoogleFonts.jetBrainsMono()),
+      content: Text(langNotifier.lang.copied,
+        style: const TextStyle(fontFamily: 'monospace')),
       backgroundColor: const Color(0xFF25D366),
       duration: const Duration(seconds: 2),
     ));
   }
 
-  // ── Country picker bottom sheet ───────────────────────────────────────────
   void _pickCountry() {
     showModalBottomSheet(
       context: context,
@@ -166,38 +162,32 @@ class _SetupScreenState extends State<SetupScreen> {
               borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 16),
           Text(l.selectCountry,
-            style: GoogleFonts.spaceGrotesk(
-              color: Colors.white,
-              fontSize: 15, fontWeight: FontWeight.w700)),
+            style: const TextStyle(
+              color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           Expanded(child: ListView.separated(
             itemCount: _countries.length,
-            separatorBuilder: (_, __) => const Divider(
-              color: Colors.white10, height: 1),
+            separatorBuilder: (_, __) =>
+                const Divider(color: Colors.white10, height: 1),
             itemBuilder: (_, i) {
               final c = _countries[i];
-              final selected = c.code == _country.code;
+              final sel = c.code == _country.code;
               return ListTile(
                 leading: Text(c.flag,
-                  style: const TextStyle(fontSize: 24)),
+                  style: const TextStyle(fontSize: 22)),
                 title: Text(c.name,
-                  style: GoogleFonts.spaceGrotesk(
+                  style: TextStyle(
                     color: Colors.white,
-                    fontWeight: selected
-                        ? FontWeight.w700 : FontWeight.w400)),
+                    fontWeight: sel ? FontWeight.w700 : FontWeight.w400)),
                 trailing: Text('+${c.code}',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: selected
+                  style: TextStyle(
+                    fontFamily: 'monospace', fontSize: 13,
+                    color: sel
                         ? const Color(0xFF25D366)
-                        : const Color(0xFF4A5280),
-                    fontSize: 13)),
-                selected: selected,
-                selectedTileColor:
-                    const Color(0xFF25D366).withOpacity(0.06),
-                onTap: () {
-                  setState(() => _country = c);
-                  Navigator.pop(context);
-                },
+                        : const Color(0xFF4A5280))),
+                selected: sel,
+                selectedTileColor: const Color(0xFF25D366).withOpacity(0.06),
+                onTap: () { setState(() => _country = c); Navigator.pop(context); },
               );
             },
           )),
@@ -221,15 +211,16 @@ class _SetupScreenState extends State<SetupScreen> {
                 shaderCallback: (r) => const LinearGradient(
                   colors: [Color(0xFF25D366), Color(0xFF00E5FF)],
                 ).createShader(r),
-                child: Text('UNITY-MD',
-                  style: GoogleFonts.orbitron(
-                    fontSize: 15, fontWeight: FontWeight.w900,
+                child: const Text('UNITY-MD',
+                  style: TextStyle(
+                    fontFamily: 'monospace', fontSize: 15,
+                    fontWeight: FontWeight.w900,
                     letterSpacing: 2, color: Colors.white)),
               ),
               const SizedBox(width: 8),
               Text(l.setupTitle,
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 13, color: const Color(0xFF4A5280))),
+                style: const TextStyle(
+                  fontSize: 13, color: Color(0xFF4A5280))),
             ]),
             actions: [_langToggle()],
           ),
@@ -239,9 +230,7 @@ class _SetupScreenState extends State<SetupScreen> {
             SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
-                child: _step == 'phone'
-                    ? _phoneUI(l)
-                    : _pairUI(l),
+                child: _step == 'phone' ? _phoneUI(l) : _pairUI(l),
               ),
             ),
           ]),
@@ -263,15 +252,15 @@ class _SetupScreenState extends State<SetupScreen> {
       ),
       child: Text(
         langNotifier.lang.isSinhala ? '🇱🇰 SI' : '🇬🇧 EN',
-        style: GoogleFonts.jetBrainsMono(
-          fontSize: 11, color: const Color(0xFF25D366))),
+        style: const TextStyle(
+          fontFamily: 'monospace', fontSize: 11,
+          color: Color(0xFF25D366))),
     ),
   );
 
   Widget _phoneUI(l) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      // Logo
       Center(child: Container(
         width: 100, height: 100,
         decoration: BoxDecoration(
@@ -282,21 +271,20 @@ class _SetupScreenState extends State<SetupScreen> {
             color: const Color(0xFF25D366).withOpacity(0.15),
             blurRadius: 24, spreadRadius: 4)],
         ),
-        child: ClipOval(
-          child: Image.asset('assets/icon.png', fit: BoxFit.cover)),
+        child: ClipOval(child: Image.asset('assets/icon.png',
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            color: const Color(0xFF25D366).withOpacity(0.15),
+            child: const Icon(Icons.smart_toy_rounded,
+              color: Color(0xFF25D366), size: 50)))),
       ).animate().fadeIn().scaleXY(begin: 0.85, end: 1.0)),
 
       const SizedBox(height: 32),
-
-      Text(l.whatsappNumber,
-        style: GoogleFonts.jetBrainsMono(
-          fontSize: 11, letterSpacing: 3,
-          color: const Color(0xFF4A5280))),
+      Text(l.whatsappNumber, style: _kLabel),
       const SizedBox(height: 10),
 
-      // ── Country + number row ──────────────────────────────────
+      // Country + number
       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Country selector
         GestureDetector(
           onTap: _pickCountry,
           child: Container(
@@ -309,62 +297,52 @@ class _SetupScreenState extends State<SetupScreen> {
                 color: const Color(0xFF25D366).withOpacity(0.15)),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(_country.flag,
-                style: const TextStyle(fontSize: 20)),
+              Text(_country.flag, style: const TextStyle(fontSize: 20)),
               const SizedBox(width: 6),
               Text('+${_country.code}',
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFF25D366),
-                  fontSize: 15, fontWeight: FontWeight.w700)),
+                style: const TextStyle(
+                  fontFamily: 'monospace', fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF25D366))),
               const SizedBox(width: 4),
               const Icon(Icons.expand_more_rounded,
                 color: Color(0xFF4A5280), size: 18),
             ]),
           ),
         ),
-
         const SizedBox(width: 10),
-
-        // Number field
-        Expanded(
-          child: TextField(
-            controller: _ctrl,
-            keyboardType: TextInputType.phone,
-            style: GoogleFonts.jetBrainsMono(
-              color: Colors.white, fontSize: 18),
-            decoration: InputDecoration(
-              hintText: '7XXXXXXXX',
-              hintStyle: GoogleFonts.jetBrainsMono(
-                color: const Color(0xFF4A5280), fontSize: 18),
-              filled: true,
-              fillColor: const Color(0xFF060A14),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 18),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: const Color(0xFF25D366).withOpacity(0.15))),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: const Color(0xFF25D366).withOpacity(0.15))),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(
-                  color: Color(0xFF25D366), width: 1.5)),
-            ),
+        Expanded(child: TextField(
+          controller: _ctrl,
+          keyboardType: TextInputType.phone,
+          style: _kMono,
+          decoration: InputDecoration(
+            hintText: '7XXXXXXXX',
+            hintStyle: _kMono.copyWith(color: const Color(0xFF4A5280)),
+            filled: true, fillColor: const Color(0xFF060A14),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 18),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: const Color(0xFF25D366).withOpacity(0.15))),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: const Color(0xFF25D366).withOpacity(0.15))),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: Color(0xFF25D366), width: 1.5)),
           ),
-        ),
+        )),
       ]),
 
       const SizedBox(height: 6),
       Text(l.phoneHelper,
-        style: GoogleFonts.spaceGrotesk(
-          fontSize: 11, color: const Color(0xFF4A5280))),
-
+        style: const TextStyle(fontSize: 11, color: Color(0xFF4A5280))),
       const SizedBox(height: 28),
 
-      // Steps card
+      // Steps
       Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -378,11 +356,9 @@ class _SetupScreenState extends State<SetupScreen> {
           children: l.setupSteps.asMap().entries.map((e) =>
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: Text(e.value,
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 13, color: Colors.white70, height: 1.6),
-              ).animate().fadeIn(
-                delay: Duration(milliseconds: 120 * (e.key as int))),
+              child: Text(e.value, style: _kBody)
+                  .animate().fadeIn(
+                    delay: Duration(milliseconds: 120 * (e.key as int))),
             )).toList(),
         ),
       ),
@@ -399,12 +375,10 @@ class _SetupScreenState extends State<SetupScreen> {
             color: const Color(0xFFFF4757).withOpacity(0.25)),
         ),
         child: Row(children: [
-          const Icon(Icons.error_outline,
-            color: Color(0xFFFF4757), size: 16),
+          const Icon(Icons.error_outline, color: Color(0xFFFF4757), size: 16),
           const SizedBox(width: 10),
           Expanded(child: Text(_error!,
-            style: GoogleFonts.spaceGrotesk(
-              color: const Color(0xFFFF4757), fontSize: 13))),
+            style: const TextStyle(color: Color(0xFFFF4757), fontSize: 13))),
         ]),
       ),
 
@@ -414,8 +388,7 @@ class _SetupScreenState extends State<SetupScreen> {
           onPressed: _loading ? null : _getCode,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF25D366),
-            foregroundColor: Colors.white,
-            elevation: 0,
+            foregroundColor: Colors.white, elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16)),
           ),
@@ -427,7 +400,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   const Icon(Icons.link_rounded, size: 20),
                   const SizedBox(width: 8),
                   Text(l.connectBtn,
-                    style: GoogleFonts.spaceGrotesk(
+                    style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w700)),
                 ]),
         ),
@@ -441,7 +414,6 @@ class _SetupScreenState extends State<SetupScreen> {
     final parts = (_pairCode ?? '').split('-');
     return Column(children: [
       const SizedBox(height: 16),
-
       Container(
         width: 76, height: 76,
         decoration: BoxDecoration(
@@ -460,13 +432,10 @@ class _SetupScreenState extends State<SetupScreen> {
           .then().scaleXY(end: 1.0, duration: 900.ms),
 
       const SizedBox(height: 22),
-
-      Text(l.pairingCode,
-        style: GoogleFonts.jetBrainsMono(
-          fontSize: 11, letterSpacing: 4,
-          color: const Color(0xFF4A5280))),
+      Text(l.pairingCode, style: _kLabel),
       const SizedBox(height: 18),
 
+      // Code boxes
       Row(mainAxisAlignment: MainAxisAlignment.center,
         children: parts.asMap().entries.map((e) => Row(children: [
           ...e.value.split('').map((c) => Container(
@@ -476,21 +445,18 @@ class _SetupScreenState extends State<SetupScreen> {
               color: const Color(0xFF25D366).withOpacity(0.07),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: const Color(0xFF25D366).withOpacity(0.25)),
-              boxShadow: [BoxShadow(
-                color: const Color(0xFF25D366).withOpacity(0.1),
-                blurRadius: 8)],
-            ),
+                color: const Color(0xFF25D366).withOpacity(0.25))),
             child: Center(child: Text(c,
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 22, fontWeight: FontWeight.w900,
-                color: const Color(0xFF25D366)))),
+              style: const TextStyle(
+                fontFamily: 'monospace', fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF25D366)))),
           )),
           if (e.key < parts.length - 1)
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: Text('-',
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 18, color: const Color(0xFF4A5280)))),
+            const Padding(padding: EdgeInsets.symmetric(horizontal: 3),
+              child: Text('-', style: TextStyle(
+                fontFamily: 'monospace', fontSize: 18,
+                color: Color(0xFF4A5280)))),
         ])).toList(),
       ),
 
@@ -500,10 +466,9 @@ class _SetupScreenState extends State<SetupScreen> {
         icon: const Icon(Icons.copy_rounded,
           size: 16, color: Color(0xFF25D366)),
         label: Text(l.copy,
-          style: GoogleFonts.jetBrainsMono(
-            color: const Color(0xFF25D366))),
+          style: const TextStyle(
+            fontFamily: 'monospace', color: Color(0xFF25D366))),
       ),
-
       const SizedBox(height: 24),
 
       Container(
@@ -517,31 +482,25 @@ class _SetupScreenState extends State<SetupScreen> {
         child: Column(children: l.pairingSteps.map((s) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 7),
           child: Row(children: [
-            Text(s.$1,
-              style: GoogleFonts.jetBrainsMono(
-                color: const Color(0xFF25D366),
-                fontSize: 13, fontWeight: FontWeight.bold)),
+            Text(s.$1, style: const TextStyle(
+              fontFamily: 'monospace', color: Color(0xFF25D366),
+              fontSize: 13, fontWeight: FontWeight.bold)),
             const SizedBox(width: 12),
-            Text(s.$2,
-              style: GoogleFonts.spaceGrotesk(
-                color: Colors.white70, fontSize: 13)),
+            Text(s.$2, style: const TextStyle(
+              color: Colors.white70, fontSize: 13)),
           ]),
         )).toList()),
       ),
 
       const SizedBox(height: 24),
-
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         SizedBox(width: 16, height: 16,
           child: CircularProgressIndicator(
             strokeWidth: 2,
             color: const Color(0xFF25D366).withOpacity(0.7))),
         const SizedBox(width: 12),
-        Text(l.waitingScan,
-          style: GoogleFonts.jetBrainsMono(
-            fontSize: 12, color: const Color(0xFF4A5280))),
+        Text(l.waitingScan, style: _kLabel),
       ]),
-
       const SizedBox(height: 20),
     ]);
   }
