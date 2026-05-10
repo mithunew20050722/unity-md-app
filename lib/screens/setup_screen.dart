@@ -284,7 +284,7 @@ class _SetupScreenState extends State<SetupScreen> {
         ),
         child: ClipOval(
           child: Image.asset('assets/icon.png', fit: BoxFit.cover)),
-      ).animate().fadeIn().scale()),
+      ).animate().fadeIn().scaleXY(begin: 0.85, end: 1.0)),
 
       const SizedBox(height: 32),
 
