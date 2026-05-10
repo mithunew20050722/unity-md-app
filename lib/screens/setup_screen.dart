@@ -7,6 +7,35 @@ import '../main.dart';
 import '../services/api_service.dart';
 import 'home_screen.dart';
 
+// ─── Country data ─────────────────────────────────────────────────────────────
+class _Country {
+  final String flag, name, code;
+  const _Country(this.flag, this.name, this.code);
+}
+
+const _countries = [
+  _Country('🇱🇰', 'Sri Lanka',     '94'),
+  _Country('🇮🇳', 'India',         '91'),
+  _Country('🇵🇰', 'Pakistan',      '92'),
+  _Country('🇧🇩', 'Bangladesh',    '880'),
+  _Country('🇬🇧', 'UK',            '44'),
+  _Country('🇺🇸', 'USA',           '1'),
+  _Country('🇦🇺', 'Australia',     '61'),
+  _Country('🇨🇦', 'Canada',        '1'),
+  _Country('🇩🇪', 'Germany',       '49'),
+  _Country('🇫🇷', 'France',        '33'),
+  _Country('🇸🇦', 'Saudi Arabia',  '966'),
+  _Country('🇦🇪', 'UAE',           '971'),
+  _Country('🇲🇾', 'Malaysia',      '60'),
+  _Country('🇸🇬', 'Singapore',     '65'),
+  _Country('🇮🇹', 'Italy',         '39'),
+  _Country('🇯🇵', 'Japan',         '81'),
+  _Country('🇰🇷', 'South Korea',   '82'),
+  _Country('🇧🇷', 'Brazil',        '55'),
+  _Country('🇿🇦', 'South Africa',  '27'),
+  _Country('🇳🇬', 'Nigeria',       '234'),
+];
+
 class SetupScreen extends StatefulWidget {
   final String? savedPhone;
   final String? pairCode;
@@ -16,30 +45,46 @@ class SetupScreen extends StatefulWidget {
 }
 
 class _SetupScreenState extends State<SetupScreen> {
-  final _ctrl = TextEditingController();
-  String _step = 'phone';
+  final _ctrl    = TextEditingController();
+  _Country _country = _countries.first; // Sri Lanka default
+  String _step   = 'phone';
   String? _pairCode;
   String? _error;
-  bool _loading = false;
+  bool _loading  = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.savedPhone != null) _ctrl.text = widget.savedPhone!;
+    if (widget.savedPhone != null) {
+      // Try to detect country from saved phone
+      final saved = widget.savedPhone!;
+      for (final c in _countries) {
+        if (saved.startsWith(c.code)) {
+          _country = c;
+          _ctrl.text = saved.substring(c.code.length);
+          break;
+        }
+      }
+      if (_ctrl.text.isEmpty) _ctrl.text = saved;
+    }
     if (widget.pairCode != null) {
       _pairCode = widget.pairCode;
-      _step = 'pairing';
-      _poll(_ctrl.text.replaceAll(RegExp(r'[^0-9]'), ''));
+      _step     = 'pairing';
+      _poll(_fullPhone());
     }
   }
 
   @override
   void dispose() { _ctrl.dispose(); super.dispose(); }
 
+  String _fullPhone() =>
+      '${_country.code}${_ctrl.text.replaceAll(RegExp(r'[^0-9]'), '')}';
+
   Future<void> _getCode() async {
     final l     = langNotifier.lang;
-    final phone = _ctrl.text.replaceAll(RegExp(r'[^0-9]'), '');
-    if (phone.length < 7) { setState(() => _error = l.invalidPhone); return; }
+    final local = _ctrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (local.length < 6) { setState(() => _error = l.invalidPhone); return; }
+    final phone = '${_country.code}$local';
     setState(() { _loading = true; _error = null; });
     try {
       final res = await ApiService.register(phone);
@@ -50,11 +95,18 @@ class _SetupScreenState extends State<SetupScreen> {
           _go(HomeScreen(phone: phone)); return;
         }
         if (res['pairCode'] != null) {
-          setState(() { _pairCode = res['pairCode']; _step = 'pairing'; _loading = false; });
+          setState(() {
+            _pairCode = res['pairCode'];
+            _step     = 'pairing';
+            _loading  = false;
+          });
           _poll(phone); return;
         }
       }
-      setState(() { _error = res['error'] ?? 'Failed. Try again.'; _loading = false; });
+      setState(() {
+        _error   = res['error'] ?? 'Failed. Try again.';
+        _loading = false;
+      });
     } catch (_) {
       setState(() { _error = l.serverError; _loading = false; });
     }
@@ -83,16 +135,75 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   void _go(Widget w) => Navigator.pushReplacement(
-    context, MaterialPageRoute(builder: (_) => w));
+      context, MaterialPageRoute(builder: (_) => w));
 
   void _copy() {
     final l = langNotifier.lang;
-    Clipboard.setData(ClipboardData(text: _pairCode?.replaceAll('-', '') ?? ''));
+    Clipboard.setData(ClipboardData(
+        text: _pairCode?.replaceAll('-', '') ?? ''));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(l.copied, style: GoogleFonts.jetBrainsMono()),
+      content: Text(l.copied,
+          style: GoogleFonts.jetBrainsMono()),
       backgroundColor: const Color(0xFF25D366),
       duration: const Duration(seconds: 2),
     ));
+  }
+
+  // ── Country picker bottom sheet ───────────────────────────────────────────
+  void _pickCountry() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF060A14),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) {
+        final l = langNotifier.lang;
+        return Column(children: [
+          const SizedBox(height: 12),
+          Container(width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 16),
+          Text(l.selectCountry,
+            style: GoogleFonts.spaceGrotesk(
+              color: Colors.white,
+              fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          Expanded(child: ListView.separated(
+            itemCount: _countries.length,
+            separatorBuilder: (_, __) => const Divider(
+              color: Colors.white10, height: 1),
+            itemBuilder: (_, i) {
+              final c = _countries[i];
+              final selected = c.code == _country.code;
+              return ListTile(
+                leading: Text(c.flag,
+                  style: const TextStyle(fontSize: 24)),
+                title: Text(c.name,
+                  style: GoogleFonts.spaceGrotesk(
+                    color: Colors.white,
+                    fontWeight: selected
+                        ? FontWeight.w700 : FontWeight.w400)),
+                trailing: Text('+${c.code}',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: selected
+                        ? const Color(0xFF25D366)
+                        : const Color(0xFF4A5280),
+                    fontSize: 13)),
+                selected: selected,
+                selectedTileColor:
+                    const Color(0xFF25D366).withOpacity(0.06),
+                onTap: () {
+                  setState(() => _country = c);
+                  Navigator.pop(context);
+                },
+              );
+            },
+          )),
+        ]);
+      },
+    );
   }
 
   @override
@@ -120,17 +231,17 @@ class _SetupScreenState extends State<SetupScreen> {
                 style: GoogleFonts.spaceGrotesk(
                   fontSize: 13, color: const Color(0xFF4A5280))),
             ]),
-            actions: [_langToggle(l)],
+            actions: [_langToggle()],
           ),
           body: Stack(children: [
-            // Subtle glow
             Positioned(top: -60, right: -60,
               child: _glow(const Color(0xFF25D366), 200)),
-
             SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
-                child: _step == 'phone' ? _phoneUI(l) : _pairUI(l),
+                child: _step == 'phone'
+                    ? _phoneUI(l)
+                    : _pairUI(l),
               ),
             ),
           ]),
@@ -139,7 +250,7 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  Widget _langToggle(l) => GestureDetector(
+  Widget _langToggle() => GestureDetector(
     onTap: () => langNotifier.toggle(),
     child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -147,12 +258,13 @@ class _SetupScreenState extends State<SetupScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF060A14),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF25D366).withOpacity(0.3)),
+        border: Border.all(
+          color: const Color(0xFF25D366).withOpacity(0.3)),
       ),
       child: Text(
         langNotifier.lang.isSinhala ? '🇱🇰 SI' : '🇬🇧 EN',
-        style: GoogleFonts.jetBrainsMono(fontSize: 11, color: const Color(0xFF25D366)),
-      ),
+        style: GoogleFonts.jetBrainsMono(
+          fontSize: 11, color: const Color(0xFF25D366))),
     ),
   );
 
@@ -164,7 +276,8 @@ class _SetupScreenState extends State<SetupScreen> {
         width: 100, height: 100,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFF25D366).withOpacity(0.2), width: 2),
+          border: Border.all(
+            color: const Color(0xFF25D366).withOpacity(0.2), width: 2),
           boxShadow: [BoxShadow(
             color: const Color(0xFF25D366).withOpacity(0.15),
             blurRadius: 24, spreadRadius: 4)],
@@ -177,32 +290,73 @@ class _SetupScreenState extends State<SetupScreen> {
 
       Text(l.whatsappNumber,
         style: GoogleFonts.jetBrainsMono(
-          fontSize: 11, letterSpacing: 3, color: const Color(0xFF4A5280))),
+          fontSize: 11, letterSpacing: 3,
+          color: const Color(0xFF4A5280))),
       const SizedBox(height: 10),
 
-      TextField(
-        controller: _ctrl,
-        keyboardType: TextInputType.phone,
-        style: GoogleFonts.jetBrainsMono(color: Colors.white, fontSize: 18),
-        decoration: InputDecoration(
-          hintText: l.phoneHint,
-          hintStyle: GoogleFonts.jetBrainsMono(
-            color: const Color(0xFF4A5280), fontSize: 18),
-          prefixIcon: const Icon(Icons.phone, color: Color(0xFF25D366)),
-          filled: true, fillColor: const Color(0xFF060A14),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(
-              color: const Color(0xFF25D366).withOpacity(0.15))),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(
-              color: const Color(0xFF25D366).withOpacity(0.15))),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFF25D366), width: 1.5)),
+      // ── Country + number row ──────────────────────────────────
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Country selector
+        GestureDetector(
+          onTap: _pickCountry,
+          child: Container(
+            height: 58,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF060A14),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFF25D366).withOpacity(0.15)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(_country.flag,
+                style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 6),
+              Text('+${_country.code}',
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFF25D366),
+                  fontSize: 15, fontWeight: FontWeight.w700)),
+              const SizedBox(width: 4),
+              const Icon(Icons.expand_more_rounded,
+                color: Color(0xFF4A5280), size: 18),
+            ]),
+          ),
         ),
-      ),
+
+        const SizedBox(width: 10),
+
+        // Number field
+        Expanded(
+          child: TextField(
+            controller: _ctrl,
+            keyboardType: TextInputType.phone,
+            style: GoogleFonts.jetBrainsMono(
+              color: Colors.white, fontSize: 18),
+            decoration: InputDecoration(
+              hintText: '7XXXXXXXX',
+              hintStyle: GoogleFonts.jetBrainsMono(
+                color: const Color(0xFF4A5280), fontSize: 18),
+              filled: true,
+              fillColor: const Color(0xFF060A14),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 18),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: const Color(0xFF25D366).withOpacity(0.15))),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: const Color(0xFF25D366).withOpacity(0.15))),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(
+                  color: Color(0xFF25D366), width: 1.5)),
+            ),
+          ),
+        ),
+      ]),
+
       const SizedBox(height: 6),
       Text(l.phoneHelper,
         style: GoogleFonts.spaceGrotesk(
@@ -216,7 +370,8 @@ class _SetupScreenState extends State<SetupScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFF060A14),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF25D366).withOpacity(0.08)),
+          border: Border.all(
+            color: const Color(0xFF25D366).withOpacity(0.08)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,7 +381,8 @@ class _SetupScreenState extends State<SetupScreen> {
               child: Text(e.value,
                 style: GoogleFonts.spaceGrotesk(
                   fontSize: 13, color: Colors.white70, height: 1.6),
-              ).animate().fadeIn(delay: Duration(milliseconds: 120 * e.key)),
+              ).animate().fadeIn(
+                delay: Duration(milliseconds: 120 * (e.key as int))),
             )).toList(),
         ),
       ),
@@ -239,10 +395,12 @@ class _SetupScreenState extends State<SetupScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFFFF4757).withOpacity(0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFFF4757).withOpacity(0.25)),
+          border: Border.all(
+            color: const Color(0xFFFF4757).withOpacity(0.25)),
         ),
         child: Row(children: [
-          const Icon(Icons.error_outline, color: Color(0xFFFF4757), size: 16),
+          const Icon(Icons.error_outline,
+            color: Color(0xFFFF4757), size: 16),
           const SizedBox(width: 10),
           Expanded(child: Text(_error!,
             style: GoogleFonts.spaceGrotesk(
@@ -258,7 +416,6 @@ class _SetupScreenState extends State<SetupScreen> {
             backgroundColor: const Color(0xFF25D366),
             foregroundColor: Colors.white,
             elevation: 0,
-            shadowColor: const Color(0xFF25D366).withOpacity(0.5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16)),
           ),
@@ -285,7 +442,6 @@ class _SetupScreenState extends State<SetupScreen> {
     return Column(children: [
       const SizedBox(height: 16),
 
-      // Pulsing icon
       Container(
         width: 76, height: 76,
         decoration: BoxDecoration(
@@ -307,10 +463,10 @@ class _SetupScreenState extends State<SetupScreen> {
 
       Text(l.pairingCode,
         style: GoogleFonts.jetBrainsMono(
-          fontSize: 11, letterSpacing: 4, color: const Color(0xFF4A5280))),
+          fontSize: 11, letterSpacing: 4,
+          color: const Color(0xFF4A5280))),
       const SizedBox(height: 18),
 
-      // Code boxes
       Row(mainAxisAlignment: MainAxisAlignment.center,
         children: parts.asMap().entries.map((e) => Row(children: [
           ...e.value.split('').map((c) => Container(
@@ -341,9 +497,11 @@ class _SetupScreenState extends State<SetupScreen> {
       const SizedBox(height: 14),
       TextButton.icon(
         onPressed: _copy,
-        icon: const Icon(Icons.copy_rounded, size: 16, color: Color(0xFF25D366)),
+        icon: const Icon(Icons.copy_rounded,
+          size: 16, color: Color(0xFF25D366)),
         label: Text(l.copy,
-          style: GoogleFonts.jetBrainsMono(color: const Color(0xFF25D366))),
+          style: GoogleFonts.jetBrainsMono(
+            color: const Color(0xFF25D366))),
       ),
 
       const SizedBox(height: 24),
@@ -392,7 +550,8 @@ class _SetupScreenState extends State<SetupScreen> {
     width: size, height: size,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      gradient: RadialGradient(colors: [c.withOpacity(0.08), Colors.transparent]),
+      gradient: RadialGradient(
+        colors: [c.withOpacity(0.08), Colors.transparent]),
     ),
   );
 }
