@@ -5,10 +5,16 @@ class ApiService {
   static const String base = 'https://unity.up.railway.app/api/app';
   static const String pair = 'https://unity.up.railway.app/api/pair';
 
+  // ── Auth header (backend requires x-app-secret) ────────────
+  static const Map<String, String> _h = {
+    'Content-Type':  'application/json',
+    'x-app-secret':  'unity_md_2025_@secret#key',
+  };
+
   // ── Ping ───────────────────────────────────────────────────
   static Future<bool> ping() async {
     try {
-      final r = await http.get(Uri.parse('$base/ping'))
+      final r = await http.get(Uri.parse('$base/ping'), headers: _h)
           .timeout(const Duration(seconds: 8));
       return r.statusCode == 200;
     } catch (_) { return false; }
@@ -18,7 +24,7 @@ class ApiService {
   static Future<Map<String, dynamic>> register(String phone) async {
     final r = await http.post(
       Uri.parse('$base/register'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _h,
       body: jsonEncode({'phone': phone}),
     ).timeout(const Duration(seconds: 40));
     return jsonDecode(r.body);
@@ -26,7 +32,7 @@ class ApiService {
 
   // ── Status ─────────────────────────────────────────────────
   static Future<Map<String, dynamic>> status(String phone) async {
-    final r = await http.get(Uri.parse('$base/status/$phone'))
+    final r = await http.get(Uri.parse('$base/status/$phone'), headers: _h)
         .timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
   }
@@ -35,16 +41,9 @@ class ApiService {
   static Future<Map<String, dynamic>> reconnect(String phone) async {
     final r = await http.post(
       Uri.parse('$base/reconnect'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _h,
       body: jsonEncode({'phone': phone}),
     ).timeout(const Duration(seconds: 15));
-    return jsonDecode(r.body);
-  }
-
-  // ── Bot info ───────────────────────────────────────────────
-  static Future<Map<String, dynamic>> botInfo(String phone) async {
-    final r = await http.get(Uri.parse('$base/bot/info/$phone'))
-        .timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
   }
 
@@ -52,9 +51,16 @@ class ApiService {
   static Future<Map<String, dynamic>> restart(String phone) async {
     final r = await http.post(
       Uri.parse('$base/restart'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _h,
       body: jsonEncode({'phone': phone}),
     ).timeout(const Duration(seconds: 20));
+    return jsonDecode(r.body);
+  }
+
+  // ── Bot info ───────────────────────────────────────────────
+  static Future<Map<String, dynamic>> botInfo(String phone) async {
+    final r = await http.get(Uri.parse('$base/bot/info/$phone'), headers: _h)
+        .timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
   }
 
@@ -62,7 +68,7 @@ class ApiService {
   static Future<void> disconnect(String phone) async {
     await http.post(
       Uri.parse('$base/disconnect'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _h,
       body: jsonEncode({'phone': phone}),
     ).timeout(const Duration(seconds: 10));
   }
@@ -71,7 +77,7 @@ class ApiService {
   static Future<Map<String, dynamic>> resendSettingsPassword(String phone) async {
     final r = await http.post(
       Uri.parse('$pair/resend-password/$phone'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _h,
     ).timeout(const Duration(seconds: 15));
     return jsonDecode(r.body);
   }
@@ -81,7 +87,7 @@ class ApiService {
       String phone, String password) async {
     final r = await http.post(
       Uri.parse('$pair/verify/$phone'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _h,
       body: jsonEncode({'password': password}),
     ).timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
@@ -91,6 +97,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getSettings(String phone) async {
     final r = await http.get(
       Uri.parse('$pair/settings/$phone'),
+      headers: _h,
     ).timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
   }
@@ -105,7 +112,7 @@ class ApiService {
   }) async {
     final r = await http.post(
       Uri.parse('$pair/settings/$phone'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _h,
       body: jsonEncode({
         'mode':        mode,
         'maintenance': maintenance,
@@ -120,7 +127,7 @@ class ApiService {
   static Future<Map<String, dynamic>> chatSetup(String phone) async {
     final r = await http.post(
       Uri.parse('$base/chat/setup'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _h,
       body: jsonEncode({'phone': phone}),
     ).timeout(const Duration(seconds: 20));
     return jsonDecode(r.body);
@@ -128,7 +135,7 @@ class ApiService {
 
   // ── App Chat: get JID ──────────────────────────────────────
   static Future<Map<String, dynamic>> chatJid(String phone) async {
-    final r = await http.get(Uri.parse('$base/chat/jid/$phone'))
+    final r = await http.get(Uri.parse('$base/chat/jid/$phone'), headers: _h)
         .timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
   }
@@ -137,7 +144,7 @@ class ApiService {
   static Future<Map<String, dynamic>> chatSend(String phone, String text) async {
     final r = await http.post(
       Uri.parse('$base/chat/send'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _h,
       body: jsonEncode({'phone': phone, 'text': text}),
     ).timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
@@ -145,7 +152,7 @@ class ApiService {
 
   // ── App Chat: get messages ─────────────────────────────────
   static Future<Map<String, dynamic>> chatMessages(String phone) async {
-    final r = await http.get(Uri.parse('$base/chat/messages/$phone'))
+    final r = await http.get(Uri.parse('$base/chat/messages/$phone'), headers: _h)
         .timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
   }
