@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:path_provider/path_provider.dart'; // getExternalStorageDirectory, getApplicationDocumentsDirectory
 import 'package:just_audio/just_audio.dart';
 import 'package:http/http.dart' as http;
 import 'api_service.dart';
@@ -28,18 +28,30 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _playingId;
 
   // ── Phone storage: /sdcard/UNITY-MD/chats/<phone>.json ────
+  Future<String> _unityRootPath() async {
+    try {
+      // Try external storage first: /sdcard/UNITY-MD/
+      final ext = await getExternalStorageDirectory();
+      if (ext != null) {
+        // Go up 4 levels to reach /sdcard/
+        return '${ext.parent.parent.parent.parent.path}/UNITY-MD';
+      }
+    } catch (_) {}
+    // Fallback: app documents dir
+    final docs = await getApplicationDocumentsDirectory();
+    return '${docs.path}/UNITY-MD';
+  }
+
   Future<File> _chatFile() async {
-    final base = await getExternalStorageDirectory();
-    final dir  = Directory(
-      '${base!.parent.parent.parent.parent.path}/UNITY-MD/chats');
+    final root = await _unityRootPath();
+    final dir  = Directory('$root/chats');
     if (!await dir.exists()) await dir.create(recursive: true);
     return File('${dir.path}/${widget.phone}.json');
   }
 
   Future<Directory> _voiceDir() async {
-    final base = await getExternalStorageDirectory();
-    final dir  = Directory(
-      '${base!.parent.parent.parent.parent.path}/UNITY-MD/voice');
+    final root = await _unityRootPath();
+    final dir  = Directory('$root/voice');
     if (!await dir.exists()) await dir.create(recursive: true);
     return dir;
   }
