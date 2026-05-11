@@ -334,7 +334,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ])
               else
                 Text(text, style: const TextStyle(
-                    color: Colors.white87, fontSize: 14, height: 1.4)),
+                    color: Colors.white70, fontSize: 14, height: 1.4)),
               const SizedBox(height: 4),
               Text(_time(time), style: const TextStyle(
                   fontSize: 10, color: Color(0xFF4A5280),

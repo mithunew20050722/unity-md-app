@@ -115,7 +115,6 @@ class ApiService {
     ).timeout(const Duration(seconds: 30));
     return jsonDecode(r.body);
   }
-}
 
   // ── App Chat: setup group ──────────────────────────────────
   static Future<Map<String, dynamic>> chatSetup(String phone) async {
@@ -150,3 +149,4 @@ class ApiService {
         .timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
   }
+}
