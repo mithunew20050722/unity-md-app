@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../services/api_service.dart';
 import 'setup_screen.dart';
+import 'chat_screen.dart';
 
 // ─── Particle ─────────────────────────────────────────────────
 class _Particle {
@@ -171,6 +172,11 @@ class _HomeScreenState extends State<HomeScreen>
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => _SettingsSheet(phone: widget.phone),
+  );
+
+  void _openChat() => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => ChatScreen(phone: widget.phone)),
   );
 
   void _openContact() => showModalBottomSheet(
@@ -375,6 +381,7 @@ class _HomeScreenState extends State<HomeScreen>
           if (v == 'dc')       _confirmDisconnect();
           if (v == 'contact')  _openContact();
           if (v == 'refresh')  _load();
+          if (v == 'chat')     _openChat();
           if (v == 'settings') _openSettings();
           if (v == 'restart')  _restart();
         },
@@ -382,6 +389,9 @@ class _HomeScreenState extends State<HomeScreen>
           PopupMenuItem(value: 'refresh',
               child: _menuRow(Icons.refresh_rounded,
                   const Color(0xFF00E5FF), 'Refresh')),
+          PopupMenuItem(value: 'chat',
+              child: _menuRow(Icons.chat_bubble_rounded,
+                  const Color(0xFF25D366), 'Bot Chat')),
           PopupMenuItem(value: 'settings',
               child: _menuRow(Icons.tune_rounded,
                   const Color(0xFFA259FF), 'Bot Settings')),
@@ -577,17 +587,17 @@ class _HomeScreenState extends State<HomeScreen>
     ),
     const SizedBox(width: 10),
     _actionBtn(
+      icon: Icons.chat_bubble_rounded,
+      label: 'Chat',
+      color: const Color(0xFF25D366),
+      onTap: _openChat,
+    ),
+    const SizedBox(width: 10),
+    _actionBtn(
       icon: Icons.restart_alt_rounded,
       label: 'Restart',
       color: const Color(0xFFFFD93D),
       onTap: _restart,
-    ),
-    const SizedBox(width: 10),
-    _actionBtn(
-      icon: Icons.refresh_rounded,
-      label: 'Refresh',
-      color: const Color(0xFF00E5FF),
-      onTap: _load,
     ),
     const SizedBox(width: 10),
     _actionBtn(
