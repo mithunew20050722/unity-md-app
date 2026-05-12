@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -34,10 +33,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   // ── Local file paths ──────────────────────────────────────
   Future<String> _unityRootPath() async {
-    try {
-      final ext = await getExternalStorageDirectory();
-      if (ext != null) return '${ext.parent.parent.parent.parent.path}/UNITY-MD';
-    } catch (_) {}
+    // Use app-private documents dir — no storage permissions needed
     final docs = await getApplicationDocumentsDirectory();
     return '${docs.path}/UNITY-MD';
   }
