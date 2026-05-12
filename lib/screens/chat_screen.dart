@@ -626,7 +626,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     _voiceBubble(msg, isPlaying)
                   else
                     Text(text, style: const TextStyle(
-                        color: Colors.white82, fontSize: 14, height: 1.45)),
+                        color: const Color(0xD1FFFFFF), fontSize: 14, height: 1.45)),
 
                   const SizedBox(height: 5),
 
