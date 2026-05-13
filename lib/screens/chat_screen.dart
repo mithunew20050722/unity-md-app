@@ -23,6 +23,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool   _sending = false;
   bool   _setup   = false;
   String? _error;
+  Map<String, dynamic>? _replyTo;
   Timer? _pollTimer;
 
   final Map<String, AudioPlayer> _players = {};
@@ -193,6 +194,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _ctrl.clear();
     HapticFeedback.lightImpact();
 
+    // Build send text — prepend reply quote if replying
+    final replyMsg  = _replyTo;
+    final replyText = replyMsg != null
+        ? replyMsg['text']?.toString() ?? ''
+        : null;
+    final sendText = replyText != null && replyText.isNotEmpty
+        ? '> ${replyText.split("\n").take(2).join(" ").substring(0, replyText.length > 80 ? 80 : replyText.length)}\n$text'
+        : text;
+
     final localId  = 'local_${DateTime.now().millisecondsSinceEpoch}';
     final localMsg = {
       'id':     localId,
@@ -200,15 +210,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       'text':   text,
       'type':   'text',
       'ts':     DateTime.now().millisecondsSinceEpoch,
+      if (replyText != null) 'replyText': replyText,
     };
 
-    setState(() { _msgs.add(localMsg); _sending = true; });
+    setState(() {
+      _msgs.add(localMsg);
+      _sending = true;
+      _replyTo = null; // clear reply
+    });
     await _saveMsgs(_msgs);
     _scrollBottom();
 
     try {
-      await ApiService.chatSend(widget.phone, text);
-      // ✅ Server confirmed — mark as sent (remove local_ prefix → tick shows)
+      await ApiService.chatSend(widget.phone, sendText);
       if (mounted) setState(() {
         final idx = _msgs.indexWhere((m) => m['id'] == localId);
         if (idx != -1) {
@@ -217,9 +231,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         }
       });
       _saveMsgs(_msgs);
-    } catch (_) {
-      // Keep clock icon — send failed
-    }
+    } catch (_) {}
     if (mounted) setState(() => _sending = false);
   }
 
@@ -575,7 +587,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         child: Align(
           alignment: fromMe ? Alignment.centerRight : Alignment.centerLeft,
           child: GestureDetector(
-            onLongPress: () => _copyMsg(text),
+            onLongPress: () => _msgOptions(msg),
             child: Container(
               constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(context).size.width * 0.75),
@@ -626,6 +638,29 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                           color: Colors.white, letterSpacing: 1)),
                     ),
                     const SizedBox(height: 5),
+                  ],
+
+                  // Reply quote preview
+                  if (msg['replyText'] != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      margin: const EdgeInsets.only(bottom: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: const Border(left: BorderSide(
+                            color: Color(0xFF25D366), width: 3)),
+                      ),
+                      child: Text(
+                        msg['replyText'].toString().length > 60
+                            ? '${msg['replyText'].toString().substring(0, 60)}...'
+                            : msg['replyText'].toString(),
+                        style: const TextStyle(
+                            color: Colors.white38, fontSize: 11),
+                        maxLines: 2, overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ],
 
                   // Voice or text
@@ -779,8 +814,162 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     ));
   }
 
+  void _msgOptions(Map<String, dynamic> msg) {
+    HapticFeedback.mediumImpact();
+    final text = msg['text']?.toString() ?? '';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF0D1420),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // Handle
+          Center(child: Container(width: 32, height: 3,
+            decoration: BoxDecoration(color: Colors.white12,
+                borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 16),
+
+          // Preview of message
+          if (text.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withOpacity(0.06)),
+              ),
+              child: Text(
+                text.length > 80 ? '${text.substring(0, 80)}...' : text,
+                style: const TextStyle(color: Colors.white38, fontSize: 12),
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+              ),
+            ),
+
+          // Options
+          _optionTile(
+            icon: Icons.reply_rounded,
+            color: const Color(0xFF25D366),
+            label: 'Reply',
+            onTap: () {
+              Navigator.pop(context);
+              setState(() => _replyTo = msg);
+              _ctrl.requestFocus();
+            },
+          ),
+          const SizedBox(height: 8),
+          _optionTile(
+            icon: Icons.copy_rounded,
+            color: const Color(0xFF00E5FF),
+            label: 'Copy',
+            onTap: () {
+              Navigator.pop(context);
+              _copyMsg(text);
+            },
+          ),
+          const SizedBox(height: 8),
+          _optionTile(
+            icon: Icons.delete_outline_rounded,
+            color: const Color(0xFFFF4757),
+            label: 'Delete',
+            onTap: () {
+              Navigator.pop(context);
+              _deleteMsg(msg['id']?.toString() ?? '');
+            },
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _optionTile({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required VoidCallback onTap,
+  }) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.15)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        const SizedBox(width: 14),
+        Text(label, style: TextStyle(
+            color: color, fontSize: 14, fontWeight: FontWeight.w600)),
+      ]),
+    ),
+  );
+
+  void _deleteMsg(String id) {
+    if (id.isEmpty) return;
+    setState(() => _msgs.removeWhere((m) => m['id']?.toString() == id));
+    _saveMsgs(_msgs);
+  }
+
+  // ── Reply preview bar ────────────────────────────────────────
+  Widget _replyBar() => Container(
+    padding: const EdgeInsets.fromLTRB(12, 8, 8, 0),
+    decoration: const BoxDecoration(
+      color: Color(0xFF030610),
+      border: Border(top: BorderSide(color: Color(0xFF0D1425), width: 1)),
+    ),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF25D366).withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border(left: BorderSide(
+            color: const Color(0xFF25D366), width: 3)),
+      ),
+      child: Row(children: [
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Replying to', style: TextStyle(
+                color: Color(0xFF25D366), fontSize: 11,
+                fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(
+              _replyTo?['text']?.toString() ?? '',
+              style: const TextStyle(color: Colors.white38, fontSize: 12),
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        )),
+        GestureDetector(
+          onTap: () => setState(() => _replyTo = null),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            child: const Icon(Icons.close_rounded,
+                color: Colors.white24, size: 18)),
+        ),
+      ]),
+    ),
+  );
+
   // ── Input bar ─────────────────────────────────────────────
-  Widget _inputBar() => Container(
+  Widget _inputBar() => Column(mainAxisSize: MainAxisSize.min, children: [
+    // Reply preview bar
+    if (_replyTo != null) _replyBar(),
+    Container(
     padding: EdgeInsets.fromLTRB(
         12, 8, 12, MediaQuery.of(context).padding.bottom + 8),
     decoration: BoxDecoration(
@@ -848,5 +1037,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         ),
       ),
     ]),
-  );
+  ), // Container
+  ]); // Column
 }
