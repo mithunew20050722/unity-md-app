@@ -208,7 +208,18 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     try {
       await ApiService.chatSend(widget.phone, text);
-    } catch (_) {}
+      // ✅ Server confirmed — mark as sent (remove local_ prefix → tick shows)
+      if (mounted) setState(() {
+        final idx = _msgs.indexWhere((m) => m['id'] == localId);
+        if (idx != -1) {
+          _msgs[idx] = Map<String, dynamic>.from(_msgs[idx])
+            ..['id'] = 'sent_${DateTime.now().millisecondsSinceEpoch}';
+        }
+      });
+      _saveMsgs(_msgs);
+    } catch (_) {
+      // Keep clock icon — send failed
+    }
     if (mounted) setState(() => _sending = false);
   }
 

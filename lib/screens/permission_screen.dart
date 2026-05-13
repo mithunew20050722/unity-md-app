@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'splash_screen.dart';
 
 class PermissionScreen extends StatefulWidget {
@@ -139,10 +140,13 @@ class _PermissionScreenState extends State<PermissionScreen>
 
     if (mounted) setState(() => _requesting = false);
 
-    // Navigate if notifications granted (minimum required)
-    final notifOk = await Permission.notification.status.isGranted;
-    if (notifOk && mounted) {
+    // Always proceed after granting — no skip allowed
+    if (mounted) {
       await Future.delayed(const Duration(milliseconds: 400));
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('perms_done', true);
+      } catch (_) {}
       _goNext();
     }
   }
@@ -165,11 +169,6 @@ class _PermissionScreenState extends State<PermissionScreen>
         transitionDuration: const Duration(milliseconds: 600),
       ),
     );
-  }
-
-  void _skip() {
-    HapticFeedback.lightImpact();
-    _goNext();
   }
 
   @override
@@ -298,15 +297,7 @@ class _PermissionScreenState extends State<PermissionScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    // Skip button
-                    TextButton(
-                      onPressed: _skip,
-                      child: const Text('Skip for now',
-                          style: TextStyle(
-                              color: Color(0xFF3A4270),
-                              fontSize: 13)),
-                    ),
+
                   ]),
                 ),
               ]),
