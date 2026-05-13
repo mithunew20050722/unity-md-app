@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -152,11 +151,8 @@ class _PermissionScreenState extends State<PermissionScreen>
   }
 
   Future<int> _getSdkVersion() async {
-    try {
-      // Parse from platform
-      final v = await const MethodChannel('flutter/platform').invokeMethod<String>('getVersion');
-      return int.tryParse(v ?? '') ?? 33;
-    } catch (_) { return 33; }
+    // Default to 33+ (safe — requests photos/videos/audio instead of storage)
+    return 33;
   }
 
   void _goNext() {
