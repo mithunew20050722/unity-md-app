@@ -15,8 +15,9 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
-  final _ctrl   = TextEditingController();
-  final _scroll = ScrollController();
+  final _ctrl      = TextEditingController();
+  final _focusNode = FocusNode();
+  final _scroll    = ScrollController();
 
   List<Map<String, dynamic>> _msgs = [];
   bool   _loading = true;
@@ -98,6 +99,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void dispose() {
     _pollTimer?.cancel();
     _ctrl.dispose();
+    _focusNode.dispose();
     _scroll.dispose();
     _pulseCtrl.dispose();
     for (final p in _players.values) p.dispose();
@@ -859,7 +861,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             onTap: () {
               Navigator.pop(context);
               setState(() => _replyTo = msg);
-              _ctrl.requestFocus();
+              _focusNode.requestFocus();
             },
           ),
           const SizedBox(height: 8),
@@ -991,6 +993,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         ),
         child: TextField(
           controller: _ctrl,
+          focusNode: _focusNode,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
             hintText: 'Type a message or command...',
