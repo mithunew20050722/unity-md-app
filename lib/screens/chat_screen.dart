@@ -20,6 +20,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final _scroll    = ScrollController();
 
   List<Map<String, dynamic>> _msgs = [];
+  final Set<String> _deletedIds = {};
   bool   _loading = true;
   bool   _sending = false;
   bool   _setup   = false;
@@ -147,9 +148,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
 
       // ✅ FIX: Merge properly — add only new server messages, never discard local
+      // Also skip any messages the user has locally deleted (_deletedIds blacklist)
       final existingIds = _msgs.map((m) => m['id']?.toString() ?? '').toSet();
       final newFromServer = server
-          .where((m) => !existingIds.contains(m['id']?.toString() ?? ''))
+          .where((m) {
+            final id = m['id']?.toString() ?? '';
+            return !existingIds.contains(id) && !_deletedIds.contains(id);
+          })
           .toList();
 
       if (newFromServer.isEmpty) {
@@ -196,14 +201,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _ctrl.clear();
     HapticFeedback.lightImpact();
 
-    // Build send text — prepend reply quote if replying
+    // Reply: keep replyText for local UI display only
+    // Send ONLY the actual typed text to backend (no quote prefix — breaks command parsing)
     final replyMsg  = _replyTo;
     final replyText = replyMsg != null
         ? replyMsg['text']?.toString() ?? ''
         : null;
-    final sendText = replyText != null && replyText.isNotEmpty
-        ? '> ${replyText.split("\n").take(2).join(" ").substring(0, replyText.length > 80 ? 80 : replyText.length)}\n$text'
-        : text;
 
     final localId  = 'local_${DateTime.now().millisecondsSinceEpoch}';
     final localMsg = {
@@ -212,7 +215,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       'text':   text,
       'type':   'text',
       'ts':     DateTime.now().millisecondsSinceEpoch,
-      if (replyText != null) 'replyText': replyText,
+      if (replyText != null && replyText.isNotEmpty) 'replyText': replyText,
     };
 
     setState(() {
@@ -224,7 +227,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _scrollBottom();
 
     try {
-      await ApiService.chatSend(widget.phone, sendText);
+      // Send only the actual command text — no quote prepended
+      await ApiService.chatSend(widget.phone, text);
       if (mounted) setState(() {
         final idx = _msgs.indexWhere((m) => m['id'] == localId);
         if (idx != -1) {
@@ -921,6 +925,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   void _deleteMsg(String id) {
     if (id.isEmpty) return;
+    _deletedIds.add(id); // permanently blacklist this ID
     setState(() => _msgs.removeWhere((m) => m['id']?.toString() == id));
     _saveMsgs(_msgs);
   }
