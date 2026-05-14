@@ -129,7 +129,9 @@ class _UpdateScreenState extends State<UpdateScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false, // back button disable — mandatory update
+      child: Scaffold(
       backgroundColor: const Color(0xFF020408),
       body: Stack(children: [
         // Background hex grid
@@ -150,6 +152,7 @@ class _UpdateScreenState extends State<UpdateScreen>
                   : _buildPrompt(),
         ),
       ]),
+    ),
     );
   }
 
@@ -277,11 +280,14 @@ class _UpdateScreenState extends State<UpdateScreen>
 
           const SizedBox(height: 14),
 
-          // Skip button
-          TextButton(
-            onPressed: _skip,
-            child: const Text('Skip for now',
-              style: TextStyle(color: Color(0xFF3A4270), fontSize: 13)),
+          // Mandatory notice
+          Text(
+            'Update required to continue using the app.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.25),
+              fontSize: 11,
+            ),
           ),
         ]),
       ),
