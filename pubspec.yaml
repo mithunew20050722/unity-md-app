@@ -1,7 +1,7 @@
 name: unity_md
 description: UNITY-MD WhatsApp Bot Controller
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -16,6 +16,10 @@ dependencies:
   cupertino_icons: ^1.0.6
   url_launcher: ^6.2.5
   connectivity_plus: ^5.0.2
+  path_provider: ^2.1.2
+  just_audio: ^0.9.36
+  permission_handler: ^11.3.1
+  open_filex: ^4.3.4
 
 dev_dependencies:
   flutter_test:

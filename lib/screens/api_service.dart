@@ -2,62 +2,158 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String _base   = 'https://unity.up.railway.app/api/app';
-  // Must match APP_SECRET in Railway environment variables
-  static const String _secret = 'unity_md_2025_@secret#key';
+  static const String base = 'https://unity.up.railway.app/api/app';
+  static const String pair = 'https://unity.up.railway.app/api/pair';
 
-  static Map<String, String> get _headers => {
+  // ── Auth header (backend requires x-app-secret) ────────────
+  static const Map<String, String> _h = {
     'Content-Type':  'application/json',
-    'x-app-secret':  _secret,
+    'x-app-secret':  'unity_md_2025_@secret#key',
   };
 
+  // ── Ping ───────────────────────────────────────────────────
   static Future<bool> ping() async {
     try {
-      final r = await http.get(Uri.parse('$_base/ping'))
+      final r = await http.get(Uri.parse('$base/ping'), headers: _h)
           .timeout(const Duration(seconds: 8));
       return r.statusCode == 200;
     } catch (_) { return false; }
   }
 
+  // ── Register + get pair code ───────────────────────────────
   static Future<Map<String, dynamic>> register(String phone) async {
     final r = await http.post(
-      Uri.parse('$_base/register'),
-      headers: _headers,
+      Uri.parse('$base/register'),
+      headers: _h,
       body: jsonEncode({'phone': phone}),
     ).timeout(const Duration(seconds: 40));
     return jsonDecode(r.body);
   }
 
+  // ── Status ─────────────────────────────────────────────────
   static Future<Map<String, dynamic>> status(String phone) async {
-    final r = await http.get(
-      Uri.parse('$_base/status/$phone'),
-      headers: _headers,
-    ).timeout(const Duration(seconds: 10));
+    final r = await http.get(Uri.parse('$base/status/$phone'), headers: _h)
+        .timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
   }
 
+  // ── Reconnect ──────────────────────────────────────────────
   static Future<Map<String, dynamic>> reconnect(String phone) async {
     final r = await http.post(
-      Uri.parse('$_base/reconnect'),
-      headers: _headers,
+      Uri.parse('$base/reconnect'),
+      headers: _h,
       body: jsonEncode({'phone': phone}),
     ).timeout(const Duration(seconds: 15));
     return jsonDecode(r.body);
   }
 
+  // ── Restart ────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> restart(String phone) async {
+    final r = await http.post(
+      Uri.parse('$base/restart'),
+      headers: _h,
+      body: jsonEncode({'phone': phone}),
+    ).timeout(const Duration(seconds: 20));
+    return jsonDecode(r.body);
+  }
+
+  // ── Bot info ───────────────────────────────────────────────
   static Future<Map<String, dynamic>> botInfo(String phone) async {
-    final r = await http.get(
-      Uri.parse('$_base/bot/info/$phone'),
-      headers: _headers,
+    final r = await http.get(Uri.parse('$base/bot/info/$phone'), headers: _h)
+        .timeout(const Duration(seconds: 10));
+    return jsonDecode(r.body);
+  }
+
+  // ── Disconnect ─────────────────────────────────────────────
+  static Future<void> disconnect(String phone) async {
+    await http.post(
+      Uri.parse('$base/disconnect'),
+      headers: _h,
+      body: jsonEncode({'phone': phone}),
+    ).timeout(const Duration(seconds: 10));
+  }
+
+  // ── Settings: request password via WhatsApp ────────────────
+  static Future<Map<String, dynamic>> resendSettingsPassword(String phone) async {
+    final r = await http.post(
+      Uri.parse('$pair/resend-password/$phone'),
+      headers: _h,
+    ).timeout(const Duration(seconds: 15));
+    return jsonDecode(r.body);
+  }
+
+  // ── Settings: verify password ──────────────────────────────
+  static Future<Map<String, dynamic>> verifySettingsPassword(
+      String phone, String password) async {
+    final r = await http.post(
+      Uri.parse('$pair/verify/$phone'),
+      headers: _h,
+      body: jsonEncode({'password': password}),
     ).timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
   }
 
-  static Future<void> disconnect(String phone) async {
-    await http.post(
-      Uri.parse('$_base/disconnect'),
-      headers: _headers,
-      body: jsonEncode({'phone': phone}),
+  // ── Settings: get current settings ────────────────────────
+  static Future<Map<String, dynamic>> getSettings(String phone) async {
+    final r = await http.get(
+      Uri.parse('$pair/settings/$phone'),
+      headers: _h,
     ).timeout(const Duration(seconds: 10));
+    return jsonDecode(r.body);
+  }
+
+  // ── Settings: save + restart ───────────────────────────────
+  static Future<Map<String, dynamic>> saveSettings(
+    String phone, {
+    required String mode,
+    required bool maintenance,
+    required Map<String, dynamic> features,
+    required Map<String, bool> commands,
+  }) async {
+    final r = await http.post(
+      Uri.parse('$pair/settings/$phone'),
+      headers: _h,
+      body: jsonEncode({
+        'mode':        mode,
+        'maintenance': maintenance,
+        'features':    features,
+        'commands':    commands,
+      }),
+    ).timeout(const Duration(seconds: 30));
+    return jsonDecode(r.body);
+  }
+
+  // ── App Chat: setup group ──────────────────────────────────
+  static Future<Map<String, dynamic>> chatSetup(String phone) async {
+    final r = await http.post(
+      Uri.parse('$base/chat/setup'),
+      headers: _h,
+      body: jsonEncode({'phone': phone}),
+    ).timeout(const Duration(seconds: 20));
+    return jsonDecode(r.body);
+  }
+
+  // ── App Chat: get JID ──────────────────────────────────────
+  static Future<Map<String, dynamic>> chatJid(String phone) async {
+    final r = await http.get(Uri.parse('$base/chat/jid/$phone'), headers: _h)
+        .timeout(const Duration(seconds: 10));
+    return jsonDecode(r.body);
+  }
+
+  // ── App Chat: send message ─────────────────────────────────
+  static Future<Map<String, dynamic>> chatSend(String phone, String text) async {
+    final r = await http.post(
+      Uri.parse('$base/chat/send'),
+      headers: _h,
+      body: jsonEncode({'phone': phone, 'text': text}),
+    ).timeout(const Duration(seconds: 10));
+    return jsonDecode(r.body);
+  }
+
+  // ── App Chat: get messages ─────────────────────────────────
+  static Future<Map<String, dynamic>> chatMessages(String phone) async {
+    final r = await http.get(Uri.parse('$base/chat/messages/$phone'), headers: _h)
+        .timeout(const Duration(seconds: 10));
+    return jsonDecode(r.body);
   }
 }
