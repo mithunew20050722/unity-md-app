@@ -23,7 +23,7 @@ class UpdateService {
       'https://api.github.com/repos/$_owner/$_repo/releases/latest';
 
   // ── Current app version (update this each build) ──────────
-  static const String currentVersion = '1.0.0';
+  static const String currentVersion = '1.0.1';
 
   // ── Check GitHub for latest release ───────────────────────
   static Future<UpdateInfo?> checkForUpdate() async {

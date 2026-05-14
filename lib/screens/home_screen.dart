@@ -1194,6 +1194,8 @@ class _ContactSheet extends StatelessWidget {
      handle: '@nmd_coder',       url: 'https://t.me/nmd_coder'),
     (icon: '🤝', color: Color(0xFF25D366), en: 'Supporter', si: 'සහාය',
      handle: '@shashen_ayantha', url: 'https://t.me/shashen_ayantha'),
+    (icon: '▶️', color: Color(0xFFFF0000), en: 'YouTube',   si: 'යූටියුබ්',
+     handle: '@team_astral_yt',  url: 'https://www.youtube.com/@team_astral_yt'),
   ];
 
   Future<void> _open(String url) async {
