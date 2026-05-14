@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:open_filex/open_filex.dart';
@@ -437,7 +438,6 @@ class _UpdateScreenState extends State<UpdateScreen>
 enum _Phase { prompt, downloading, done }
 
 // ── Painters ──────────────────────────────────────────────────
-import 'dart:math';
 
 class _OrbitRing extends CustomPainter {
   final double t;
