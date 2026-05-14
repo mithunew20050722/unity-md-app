@@ -5,6 +5,8 @@ import '../main.dart';
 import 'api_service.dart';
 import 'setup_screen.dart';
 import 'home_screen.dart';
+import 'update_service.dart';
+import 'update_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -54,27 +56,50 @@ class _SplashScreenState extends State<SplashScreen>
 
     setState(() => _progress = 0.5);
     final phone = prefs.getString('phone');
+
+    // ── Check for update ───────────────────────────────────
+    setState(() { _msg = 'Checking for updates...'; _progress = 0.6; });
+    final updateInfo = await UpdateService.checkForUpdate();
+    if (!mounted) return;
+
     if (phone == null) {
       setState(() { _progress = 1.0; });
       await Future.delayed(const Duration(milliseconds: 400));
-      _go(const SetupScreen());
+      if (updateInfo != null) {
+        _go(UpdateScreen(info: updateInfo, nextScreen: const SetupScreen()));
+      } else {
+        _go(const SetupScreen());
+      }
       return;
     }
 
-    if (mounted) setState(() { _msg = langNotifier.lang.reconnecting; _progress = 0.75; });
+    if (mounted) setState(() { _msg = langNotifier.lang.reconnecting; _progress = 0.8; });
     try {
       final res = await ApiService.reconnect(phone);
       if (!mounted) return;
       setState(() => _progress = 1.0);
       await Future.delayed(const Duration(milliseconds: 300));
+
+      Widget next;
       if (res['status'] == 'pairing') {
-        _go(SetupScreen(savedPhone: phone, pairCode: res['pairCode']));
+        next = SetupScreen(savedPhone: phone, pairCode: res['pairCode']);
       } else {
-        _go(HomeScreen(phone: phone));
+        next = HomeScreen(phone: phone);
+      }
+
+      if (updateInfo != null) {
+        _go(UpdateScreen(info: updateInfo, nextScreen: next));
+      } else {
+        _go(next);
       }
     } catch (_) {
       setState(() => _progress = 1.0);
-      _go(HomeScreen(phone: phone));
+      final next = HomeScreen(phone: phone);
+      if (updateInfo != null) {
+        _go(UpdateScreen(info: updateInfo, nextScreen: next));
+      } else {
+        _go(next);
+      }
     }
   }
 
