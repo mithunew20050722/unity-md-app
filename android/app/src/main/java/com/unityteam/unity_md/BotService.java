@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 public class BotService extends Service {
     private static final String TAG        = "UNITY_SERVICE";
     private static final String CH_ID     = "unity_bot_channel";
-    private static final String BASE_URL  = "https://unity.up.railway.app/api/app";
+    private static final String BASE_URL  = "https://unitynew.up.railway.app/api/app";
     private static final int    NOTIF_ID  = 1001;
 
     private ScheduledExecutorService _scheduler;
