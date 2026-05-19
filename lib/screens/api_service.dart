@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String base = 'https://unity.up.railway.app/api/app';
-  static const String pair = 'https://unity.up.railway.app/api/pair';
+  static const String base = 'https://unitynew.up.railway.app/api/app';
+  static const String pair = 'https://unitynew.up.railway.app/api/pair';
 
   // ── Auth header (backend requires x-app-secret) ────────────
   static const Map<String, String> _h = {
