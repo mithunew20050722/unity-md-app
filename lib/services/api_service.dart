@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String base = 'https://unity.up.railway.app/api/app';
+  static const String base = 'https://unitynew.up.railway.app/api/app';
 
   // ── Ping ─────────────────────────────────────────────────────
   static Future<bool> ping() async {
