@@ -7,6 +7,7 @@ import 'setup_screen.dart';
 import 'home_screen.dart';
 import 'update_service.dart';
 import 'update_screen.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -21,6 +22,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fade, _scale, _pulse;
   String _msg = '';
   double _progress = 0.0;
+  String _version = '';
 
   @override
   void initState() {
@@ -46,6 +48,8 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _boot() async {
     await Future.delayed(const Duration(milliseconds: 900));
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) setState(() => _version = info.version);
     if (!mounted) return;
     setState(() { _msg = langNotifier.lang.starting; _progress = 0.2; });
 
@@ -279,7 +283,7 @@ class _SplashScreenState extends State<SplashScreen>
         // Version tag
         Positioned(bottom: 28, left: 0, right: 0,
           child: FadeTransition(opacity: _fade,
-            child: const Text('v1.0.0', textAlign: TextAlign.center,
+            child: Text('v\$_version', textAlign: TextAlign.center,
               style: TextStyle(fontSize: 10, color: Color(0xFF1A2030),
                 letterSpacing: 3, fontFamily: 'monospace')))),
       ]),
