@@ -156,4 +156,36 @@ class ApiService {
         .timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
   }
+
+  // ── OTP: check if bot already connected ──────────────────────
+  static Future<Map<String, dynamic>> checkBotConnected(String phone) async {
+    try {
+      final r = await http.get(Uri.parse('$base/status/$phone'), headers: _h)
+          .timeout(const Duration(seconds: 10));
+      final body = jsonDecode(r.body);
+      return {'botConnected': body['status'] == 'connected'};
+    } catch (_) {
+      return {'botConnected': false};
+    }
+  }
+
+  // ── OTP: send OTP via bot to owner inbox ──────────────────────
+  static Future<void> sendOtp(String phone) async {
+    await http.post(
+      Uri.parse('$base/otp/send'),
+      headers: _h,
+      body: jsonEncode({'phone': phone}),
+    ).timeout(const Duration(seconds: 15));
+  }
+
+  // ── OTP: verify OTP ───────────────────────────────────────────
+  static Future<Map<String, dynamic>> verifyOtp(String phone, String otp) async {
+    final r = await http.post(
+      Uri.parse('$base/otp/verify'),
+      headers: _h,
+      body: jsonEncode({'phone': phone, 'otp': otp}),
+    ).timeout(const Duration(seconds: 15));
+    return jsonDecode(r.body);
+  }
 }
+
