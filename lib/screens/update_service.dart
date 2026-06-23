@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class UpdateInfo {
   final String version;
@@ -17,17 +18,22 @@ class UpdateInfo {
 
 class UpdateService {
   // ── GitHub repo details ────────────────────────────────────
-  static const String _owner   = 'botupdatecloud-collab';
-  static const String _repo    = 'unity-online-update';
+  static const String _owner   = 'mithunew20050722';
+  static const String _repo    = 'unity-md-app';
   static const String _apiUrl  =
       'https://api.github.com/repos/$_owner/$_repo/releases/latest';
 
-  // ── Current app version (update this each build) ──────────
-  static const String currentVersion = '1.0.1';
+  // ── Auto-detect current version from pubspec.yaml ─────────
+  static Future<String> get currentVersion async {
+    final info = await PackageInfo.fromPlatform();
+    return info.version; // e.g. "1.0.4"
+  }
 
   // ── Check GitHub for latest release ───────────────────────
   static Future<UpdateInfo?> checkForUpdate() async {
     try {
+      final current = await currentVersion;
+
       final res = await http
           .get(Uri.parse(_apiUrl), headers: {'Accept': 'application/vnd.github+json'})
           .timeout(const Duration(seconds: 10));
@@ -41,7 +47,7 @@ class UpdateService {
       if (latestRaw.isEmpty) return null;
 
       // Compare versions — if latest > current, update available
-      if (!_isNewer(latestRaw, currentVersion)) return null;
+      if (!_isNewer(latestRaw, current)) return null;
 
       // Find APK asset in release
       final assets = json['assets'] as List? ?? [];
