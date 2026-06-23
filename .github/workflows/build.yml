@@ -1,9 +1,12 @@
-name: Build UNITY-MD APK
+name: Build & Release UNITY-MD APK
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -12,6 +15,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Get version from pubspec.yaml
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1 | tr -d ' ')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -32,9 +42,20 @@ jobs:
       - name: Build APK
         run: flutter build apk --release --no-shrink
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Rename APK
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/unity-md-v${{ steps.version.outputs.VERSION }}.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: UNITY-MD-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 30
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: UNITY-MD v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## UNITY-MD v${{ steps.version.outputs.VERSION }}
+            - Auto release from GitHub Actions
+          files: build/app/outputs/flutter-apk/unity-md-v${{ steps.version.outputs.VERSION }}.apk
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
