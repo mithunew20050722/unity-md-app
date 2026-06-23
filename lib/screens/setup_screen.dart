@@ -263,10 +263,12 @@ class _SetupScreenState extends State<SetupScreen>
     with TickerProviderStateMixin {
   final _ctrl = TextEditingController();
   _C _country = _countries.first;
-  String _step = 'phone';
+  String _step = 'phone';   // 'phone' | 'otp' | 'pairing'
   String? _pairCode;
   String? _error;
   bool _loading = false;
+  String? _otpPhone;
+  final _otpCtrl = TextEditingController();
 
   // animations
   late AnimationController _orbitCtrl, _fadeCtrl, _pulseCtrl;
@@ -325,6 +327,18 @@ class _SetupScreenState extends State<SetupScreen>
     final phone = _fullPhone();
     setState(() { _loading = true; _error = null; });
     try {
+      // Check if this number already has a connected bot session
+      final checkRes = await ApiService.checkBotConnected(phone);
+      if (!mounted) return;
+
+      if (checkRes['botConnected'] == true) {
+        // Already connected — send OTP via bot to owner inbox
+        await ApiService.sendOtp(phone);
+        setState(() { _otpPhone = phone; _step = 'otp'; _loading = false; });
+        return;
+      }
+
+      // No bot session — normal pair code flow
       final res = await ApiService.register(phone);
       if (!mounted) return;
       if (res['ok'] == true) {
@@ -337,6 +351,25 @@ class _SetupScreenState extends State<SetupScreen>
       setState(() { _error = res['error'] ?? 'Failed.'; _loading = false; });
     } catch (_) {
       if (mounted) setState(() { _error = langNotifier.lang.serverError; _loading = false; });
+    }
+  }
+
+  // OTP verify
+  Future<void> _verifyOtp() async {
+    final otp = _otpCtrl.text.trim();
+    if (otp.length < 4) { setState(() => _error = 'Enter valid OTP'); return; }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final res = await ApiService.verifyOtp(_otpPhone!, otp);
+      if (!mounted) return;
+      if (res['ok'] == true) {
+        await _save(_otpPhone!);
+        _go(HomeScreen(phone: _otpPhone!));
+        return;
+      }
+      setState(() { _error = res['error'] ?? 'Invalid OTP'; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _error = 'Server error'; _loading = false; });
     }
   }
 
@@ -463,7 +496,7 @@ class _SetupScreenState extends State<SetupScreen>
             SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
-                child: _step == 'phone' ? _phoneUI() : _pairUI(),
+                child: _step == 'phone' ? _phoneUI() : _step == 'otp' ? _otpUI() : _pairUI(),
               ),
             ),
           ]),
@@ -612,6 +645,77 @@ class _SetupScreenState extends State<SetupScreen>
         gradient: const [Color(0xFF25D366), Color(0xFF00B894)],
         glowColor: const Color(0xFF25D366),
       ),
+      const SizedBox(height: 20),
+    ]);
+  }
+
+
+  // ── OTP UI ────────────────────────────────────────────────────
+  Widget _otpUI() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SizedBox(height: 24),
+      Center(child: AnimatedBuilder(
+        animation: _pulseAnim,
+        builder: (_, __) => Container(
+          width: 80, height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF00E5FF).withOpacity(0.08 * _pulseAnim.value),
+            border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.4), width: 2),
+            boxShadow: [BoxShadow(
+                color: const Color(0xFF00E5FF).withOpacity(0.2 * _pulseAnim.value),
+                blurRadius: 20, spreadRadius: 4)],
+          ),
+          child: const Icon(Icons.lock_rounded, color: Color(0xFF00E5FF), size: 36),
+        ),
+      )),
+      const SizedBox(height: 20),
+      Center(child: ShaderMask(
+        shaderCallback: (r) => const LinearGradient(
+            colors: [Color(0xFF25D366), Color(0xFF00E5FF)]).createShader(r),
+        child: const Text('OTP VERIFICATION', style: TextStyle(
+            fontFamily: 'monospace', fontSize: 13,
+            letterSpacing: 3, color: Colors.white, fontWeight: FontWeight.w700)),
+      )),
+      const SizedBox(height: 6),
+      const Center(child: Text('Check your bot owner inbox on WhatsApp',
+          style: TextStyle(fontSize: 12, color: Color(0xFF4A5280)))),
+      const SizedBox(height: 24),
+
+      _glassCard(accentColor: const Color(0xFF00E5FF), child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Enter OTP', style: TextStyle(
+              fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          _neonField(_otpCtrl, '• • • • • •'),
+          const SizedBox(height: 8),
+          const Text('The OTP was sent to the bot owner via WhatsApp',
+              style: TextStyle(fontSize: 11, color: Color(0xFF4A5280))),
+        ],
+      )),
+
+      if (_error != null) ...[
+        const SizedBox(height: 14),
+        _errorCard(_error!),
+      ],
+
+      const SizedBox(height: 20),
+
+      _neonButton(
+        label: 'Verify OTP',
+        icon: Icons.verified_rounded,
+        loading: _loading,
+        onTap: _verifyOtp,
+        gradient: const [Color(0xFF00E5FF), Color(0xFF0084FF)],
+        glowColor: const Color(0xFF00E5FF),
+      ),
+      const SizedBox(height: 12),
+      Center(child: GestureDetector(
+        onTap: () => setState(() { _step = 'phone'; _error = null; _otpCtrl.clear(); }),
+        child: const Text('← Back', style: TextStyle(
+            color: Color(0xFF4A5280), fontSize: 13, fontFamily: 'monospace')),
+      )),
       const SizedBox(height: 20),
     ]);
   }
