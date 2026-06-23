@@ -39,13 +39,27 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/unity-md.jks
+
       - name: Build APK
         run: flutter build apk --release --no-shrink
+        env:
+          KEYSTORE_PATH: unity-md.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Rename APK
+      - name: Sign APK
         run: |
-          mv build/app/outputs/flutter-apk/app-release.apk \
-             build/app/outputs/flutter-apk/unity-md-v${{ steps.version.outputs.VERSION }}.apk
+          $ANDROID_HOME/build-tools/33.0.1/apksigner sign \
+            --ks android/app/unity-md.jks \
+            --ks-key-alias ${{ secrets.KEY_ALIAS }} \
+            --ks-pass pass:${{ secrets.KEYSTORE_PASSWORD }} \
+            --key-pass pass:${{ secrets.KEY_PASSWORD }} \
+            --out build/app/outputs/flutter-apk/unity-md-v${{ steps.version.outputs.VERSION }}.apk \
+            build/app/outputs/flutter-apk/app-release.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
