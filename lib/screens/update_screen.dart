@@ -29,6 +29,7 @@ class _UpdateScreenState extends State<UpdateScreen>
   double _progress  = 0.0;
   String _statusMsg = '';
   File?  _apkFile;
+  String _currentVersion = '';
 
   @override
   void initState() {
