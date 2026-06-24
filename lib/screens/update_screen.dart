@@ -33,6 +33,9 @@ class _UpdateScreenState extends State<UpdateScreen>
   @override
   void initState() {
     super.initState();
+    UpdateService.currentVersion.then((v) {
+      if (mounted) setState(() => _currentVersion = v);
+    });
     _pulseCtrl = AnimationController(
         vsync: this, duration: const Duration(seconds: 2))
       ..repeat(reverse: true);
