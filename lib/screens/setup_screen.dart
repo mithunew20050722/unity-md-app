@@ -711,11 +711,28 @@ class _SetupScreenState extends State<SetupScreen>
         glowColor: const Color(0xFF00E5FF),
       ),
       const SizedBox(height: 12),
-      Center(child: GestureDetector(
-        onTap: () => setState(() { _step = 'phone'; _error = null; _otpCtrl.clear(); }),
-        child: const Text('← Back', style: TextStyle(
-            color: Color(0xFF4A5280), fontSize: 13, fontFamily: 'monospace')),
-      )),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        GestureDetector(
+          onTap: () => setState(() { _step = 'phone'; _error = null; _otpCtrl.clear(); }),
+          child: const Text('← Back', style: TextStyle(
+              color: Color(0xFF4A5280), fontSize: 13, fontFamily: 'monospace')),
+        ),
+        GestureDetector(
+          onTap: _loading ? null : () async {
+            setState(() { _loading = true; _error = null; });
+            try {
+              await ApiService.sendOtp(_otpPhone!);
+              if (mounted) setState(() { _loading = false; _error = null; });
+            } catch (_) {
+              if (mounted) setState(() { _loading = false; _error = 'Resend failed. Try again.'; });
+            }
+          },
+          child: Text(
+            _loading ? 'Sending...' : '🔄 Resend OTP',
+            style: const TextStyle(color: Color(0xFF25D366), fontSize: 13, fontFamily: 'monospace'),
+          ),
+        ),
+      ]),
       const SizedBox(height: 20),
     ]);
   }
