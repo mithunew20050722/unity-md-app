@@ -96,7 +96,7 @@ class ApiService {
   // ── Settings: get current settings ────────────────────────
   static Future<Map<String, dynamic>> getSettings(String phone) async {
     final r = await http.get(
-      Uri.parse('$pair/settings/$phone'),
+      Uri.parse('$base/settings/$phone'),
       headers: _h,
     ).timeout(const Duration(seconds: 10));
     return jsonDecode(r.body);
@@ -111,7 +111,7 @@ class ApiService {
     required Map<String, bool> commands,
   }) async {
     final r = await http.post(
-      Uri.parse('$pair/settings/$phone'),
+      Uri.parse('$base/settings/$phone'),
       headers: _h,
       body: jsonEncode({
         'mode':        mode,
