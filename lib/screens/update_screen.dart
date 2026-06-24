@@ -209,7 +209,7 @@ class _UpdateScreenState extends State<UpdateScreen>
               color: const Color(0xFF25D366).withOpacity(0.06),
             ),
             child: Text(
-              'v${UpdateService.currentVersion}  →  v${widget.info.version}',
+              'v$_currentVersion  →  v${widget.info.version}',
               style: const TextStyle(
                 color: Color(0xFF25D366), fontSize: 13,
                 fontFamily: 'monospace', letterSpacing: 1,
