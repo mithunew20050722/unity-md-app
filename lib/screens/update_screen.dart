@@ -29,7 +29,7 @@ class _UpdateScreenState extends State<UpdateScreen>
   double _progress  = 0.0;
   String _statusMsg = '';
   File?  _apkFile;
-  String _currentVersion = '';
+  String _currentVersion = '...';
 
   @override
   void initState() {
@@ -129,9 +129,6 @@ class _UpdateScreenState extends State<UpdateScreen>
 
   Future<void> _installApk(File file) async {
     await OpenFilex.open(file.path, type: 'application/vnd.android.package-archive');
-    // Exit app after launching installer — next launch will be fresh v
-    await Future.delayed(const Duration(seconds: 2));
-    exit(0);
   }
 
   @override
