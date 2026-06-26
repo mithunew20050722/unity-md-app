@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'l10n.dart';
 import 'screens/permission_screen.dart';
 import 'screens/splash_screen.dart';
-import 'screens/control_panel_screen.dart';
 import 'widgets/control_panel_fab.dart';
 
 class LangNotifier extends ChangeNotifier {
@@ -35,6 +34,9 @@ class LangNotifier extends ChangeNotifier {
 
 final langNotifier = LangNotifier();
 
+// Global navigator key — used to insert FAB into Overlay
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 Future<Widget> _startScreen() async {
   try {
     final prefs  = await SharedPreferences.getInstance();
@@ -42,7 +44,6 @@ Future<Widget> _startScreen() async {
 
     if (done) return const SplashScreen();
 
-    // Check if essential permission already granted
     final notifOk = await Permission.notification.status.isGranted;
     if (notifOk) {
       await prefs.setBool('perms_done', true);
@@ -82,6 +83,7 @@ class UnityMdApp extends StatelessWidget {
       listenable: langNotifier,
       builder: (_, __) => MaterialApp(
         title: 'UNITY-MD',
+        navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           brightness: Brightness.dark,
@@ -94,39 +96,43 @@ class UnityMdApp extends StatelessWidget {
           useMaterial3: true,
         ),
         home: home,
-        // Global overlay — FAB shows on every screen
         builder: (context, child) {
-          return _GlobalFabWrapper(child: child ?? const SizedBox());
+          return _OverlayFabInjector(child: child ?? const SizedBox());
         },
       ),
     );
   }
 }
 
-/// Wraps every screen with the Control Panel FAB overlay.
-/// FAB is hidden when the Control Panel itself is open.
-class _GlobalFabWrapper extends StatefulWidget {
+/// Injects the FAB into the Flutter Overlay so it sits above everything
+/// and receives touch events correctly.
+class _OverlayFabInjector extends StatefulWidget {
   final Widget child;
-  const _GlobalFabWrapper({required this.child});
-  @override State<_GlobalFabWrapper> createState() => _GlobalFabWrapperState();
+  const _OverlayFabInjector({required this.child});
+  @override State<_OverlayFabInjector> createState() => _OverlayFabInjectorState();
 }
 
-class _GlobalFabWrapperState extends State<_GlobalFabWrapper>
-    with RouteAware {
-  bool _panelOpen = false;
+class _OverlayFabInjectorState extends State<_OverlayFabInjector> {
+  OverlayEntry? _entry;
 
   @override
-  Widget build(BuildContext context) {
-    // Hide FAB on ControlPanelScreen itself
-    final isPanel = ModalRoute.of(context)?.settings.name == '/control-panel';
-
-    return Stack(
-      children: [
-        widget.child,
-        // Show FAB only when control panel is NOT the active route
-        if (!isPanel)
-          const ControlPanelFab(),
-      ],
-    );
+  void initState() {
+    super.initState();
+    // Insert after first frame so Overlay is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) => _insertFab());
   }
+
+  void _insertFab() {
+    _entry = OverlayEntry(builder: (_) => const ControlPanelFab());
+    Overlay.of(context).insert(_entry!);
+  }
+
+  @override
+  void dispose() {
+    _entry?.remove();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
