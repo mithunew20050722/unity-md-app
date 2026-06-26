@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'l10n.dart';
 import 'screens/permission_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/control_panel_screen.dart';
+import 'widgets/control_panel_fab.dart';
 
 class LangNotifier extends ChangeNotifier {
   L10n _lang = L10n.en;
@@ -92,7 +94,39 @@ class UnityMdApp extends StatelessWidget {
           useMaterial3: true,
         ),
         home: home,
+        // Global overlay — FAB shows on every screen
+        builder: (context, child) {
+          return _GlobalFabWrapper(child: child ?? const SizedBox());
+        },
       ),
+    );
+  }
+}
+
+/// Wraps every screen with the Control Panel FAB overlay.
+/// FAB is hidden when the Control Panel itself is open.
+class _GlobalFabWrapper extends StatefulWidget {
+  final Widget child;
+  const _GlobalFabWrapper({required this.child});
+  @override State<_GlobalFabWrapper> createState() => _GlobalFabWrapperState();
+}
+
+class _GlobalFabWrapperState extends State<_GlobalFabWrapper>
+    with RouteAware {
+  bool _panelOpen = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // Hide FAB on ControlPanelScreen itself
+    final isPanel = ModalRoute.of(context)?.settings.name == '/control-panel';
+
+    return Stack(
+      children: [
+        widget.child,
+        // Show FAB only when control panel is NOT the active route
+        if (!isPanel)
+          const ControlPanelFab(),
+      ],
     );
   }
 }
