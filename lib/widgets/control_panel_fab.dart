@@ -1,12 +1,11 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../main.dart' show navigatorKey;
 import '../screens/api_service.dart';
 import '../screens/control_panel_screen.dart';
 
-/// Global floating button — visible on every screen.
-/// Tap → password dialog → opens Control Panel WebView.
+/// Global FAB — injected into Overlay so it floats above every screen.
 class ControlPanelFab extends StatefulWidget {
   const ControlPanelFab({super.key});
   @override State<ControlPanelFab> createState() => _ControlPanelFabState();
@@ -47,12 +46,8 @@ class _ControlPanelFabState extends State<ControlPanelFab>
     HapticFeedback.mediumImpact();
     final phone = await _savedPhone();
     if (!mounted) return;
-    _showPasswordDialog(phone);
-  }
-
-  void _showPasswordDialog(String? phone) {
     showDialog(
-      context: context,
+      context: navigatorKey.currentContext!,
       barrierColor: Colors.black87,
       builder: (_) => _PasswordDialog(phone: phone),
     );
@@ -62,7 +57,7 @@ class _ControlPanelFabState extends State<ControlPanelFab>
   Widget build(BuildContext context) {
     return Positioned(
       right: 16,
-      bottom: MediaQuery.of(context).padding.bottom + 90,
+      bottom: 90,
       child: ScaleTransition(
         scale: _scale,
         child: GestureDetector(
@@ -85,11 +80,7 @@ class _ControlPanelFabState extends State<ControlPanelFab>
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.dashboard_rounded,
-              color: Colors.white,
-              size: 24,
-            ),
+            child: const Icon(Icons.dashboard_rounded, color: Colors.white, size: 24),
           ),
         ),
       ),
@@ -128,10 +119,9 @@ class _PasswordDialogState extends State<_PasswordDialog> {
     try {
       final phone = widget.phone ?? '';
       if (phone.isEmpty) {
-        // No phone saved — open panel directly with just URL
         if (!mounted) return;
         Navigator.pop(context);
-        Navigator.push(context,
+        navigatorKey.currentState?.push(
             MaterialPageRoute(builder: (_) => const ControlPanelScreen()));
         return;
       }
@@ -141,28 +131,23 @@ class _PasswordDialogState extends State<_PasswordDialog> {
 
       if (res['ok'] == true) {
         Navigator.pop(context);
-        Navigator.push(context,
+        navigatorKey.currentState?.push(
             MaterialPageRoute(builder: (_) => const ControlPanelScreen()));
       } else {
         setState(() {
-          _error = res['error'] ?? 'Password වැරදියි. නැවත try කරන්න.';
+          _error = res['error'] ?? 'Password වැරදියි.';
           _loading = false;
         });
       }
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _error = 'Server reach වෙන්නේ නැහැ.';
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() { _error = 'Server reach වෙන්නේ නැහැ.'; _loading = false; });
     }
   }
 
   Future<void> _resend() async {
     final phone = widget.phone ?? '';
     if (phone.isEmpty) {
-      setState(() => _error = 'Phone number නැහැ. Setup screen ගිහිල්ල login කරන්න.');
+      setState(() => _error = 'Phone number නැහැ.');
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -185,23 +170,16 @@ class _PasswordDialogState extends State<_PasswordDialog> {
           color: const Color(0xFF080D14),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: const Color(0xFF25D366).withOpacity(0.25)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF25D366).withOpacity(0.12),
-              blurRadius: 32,
-            ),
-          ],
+          boxShadow: [BoxShadow(color: const Color(0xFF25D366).withOpacity(0.12), blurRadius: 32)],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Icon
             Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
+              width: 56, height: 56,
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   colors: [Color(0xFF25D366), Color(0xFF00E5FF)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -210,25 +188,13 @@ class _PasswordDialogState extends State<_PasswordDialog> {
               child: const Icon(Icons.lock_rounded, color: Colors.white, size: 26),
             ),
             const SizedBox(height: 16),
-
-            // Title
-            const Text(
-              'Control Panel',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: 0.5,
-              ),
-            ),
+            const Text('Control Panel',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
             const SizedBox(height: 4),
-            const Text(
-              'Password enter කරන්න',
-              style: TextStyle(fontSize: 13, color: Colors.white54),
-            ),
+            const Text('Password enter කරන්න',
+                style: TextStyle(fontSize: 13, color: Colors.white54)),
             const SizedBox(height: 20),
 
-            // Password field
             Container(
               decoration: BoxDecoration(
                 color: const Color(0xFF0F1520),
@@ -251,11 +217,8 @@ class _PasswordDialogState extends State<_PasswordDialog> {
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                      color: Colors.white38,
-                      size: 20,
-                    ),
+                    icon: Icon(_obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                        color: Colors.white38, size: 20),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   ),
                 ),
@@ -263,25 +226,20 @@ class _PasswordDialogState extends State<_PasswordDialog> {
               ),
             ),
 
-            // Error
             if (_error != null) ...[
               const SizedBox(height: 10),
               Row(children: [
-                const Icon(Icons.error_outline_rounded,
-                    color: Color(0xFFFF4757), size: 14),
+                const Icon(Icons.error_outline_rounded, color: Color(0xFFFF4757), size: 14),
                 const SizedBox(width: 6),
                 Expanded(child: Text(_error!,
-                    style: const TextStyle(
-                        color: Color(0xFFFF4757), fontSize: 12))),
+                    style: const TextStyle(color: Color(0xFFFF4757), fontSize: 12))),
               ]),
             ],
 
-            // Resend success
             if (_resendSent) ...[
               const SizedBox(height: 10),
-              Row(children: const [
-                Icon(Icons.check_circle_outline_rounded,
-                    color: Color(0xFF25D366), size: 14),
+              const Row(children: [
+                Icon(Icons.check_circle_outline_rounded, color: Color(0xFF25D366), size: 14),
                 SizedBox(width: 6),
                 Text('Password WhatsApp එකට send කළා!',
                     style: TextStyle(color: Color(0xFF25D366), fontSize: 12)),
@@ -290,16 +248,13 @@ class _PasswordDialogState extends State<_PasswordDialog> {
 
             const SizedBox(height: 20),
 
-            // Buttons
             Row(children: [
-              // Resend
               Expanded(
                 child: OutlinedButton(
                   onPressed: _loading ? null : _resend,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF25D366), width: 1.2),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                   ),
                   child: const Text('Resend',
@@ -308,7 +263,6 @@ class _PasswordDialogState extends State<_PasswordDialog> {
                 ),
               ),
               const SizedBox(width: 10),
-              // Login
               Expanded(
                 flex: 2,
                 child: ElevatedButton(
@@ -316,27 +270,20 @@ class _PasswordDialogState extends State<_PasswordDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF25D366),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     elevation: 0,
                   ),
                   child: _loading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2),
-                        )
+                      ? const SizedBox(width: 18, height: 18,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Text('Open Panel',
-                          style: TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w700)),
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                 ),
               ),
             ]),
 
             const SizedBox(height: 8),
-            // Cancel
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel',
