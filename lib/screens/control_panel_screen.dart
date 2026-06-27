@@ -20,10 +20,10 @@ class _Api {
     return data;
   }
 
-  static Future<Map<String, dynamic>> sendCpOtp(String phone) async {
+  static Future<Map<String, dynamic>> sendCpOtp(String email) async {
     final res = await http.post(Uri.parse('$base/api/cp/otp/send'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'phone': phone}))
+        body: jsonEncode({'email': email}))
         .timeout(const Duration(seconds: 15));
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
@@ -75,7 +75,7 @@ class ControlPanelPasswordDialog extends StatefulWidget {
 }
 
 class _PWState extends State<ControlPanelPasswordDialog> {
-  final _phoneCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _otpCtrl   = TextEditingController();
   final _pwCtrl    = TextEditingController();
   bool _loading = false, _obscure = true;
@@ -84,17 +84,17 @@ class _PWState extends State<ControlPanelPasswordDialog> {
   String? _error;
 
   @override void dispose() {
-    _phoneCtrl.dispose(); _otpCtrl.dispose(); _pwCtrl.dispose();
+    _emailCtrl.dispose(); _otpCtrl.dispose(); _pwCtrl.dispose();
     super.dispose();
   }
 
   // Step 0 → send OTP
   Future<void> _sendOtp() async {
-    final phone = _phoneCtrl.text.trim();
-    if (phone.length < 7) { setState(() => _error = 'Valid phone number enter කරන්න'); return; }
+    final email = _emailCtrl.text.trim();
+    if (!email.contains('@')) { setState(() => _error = 'Valid email enter කරන්න'); return; }
     setState(() { _loading = true; _error = null; });
     try {
-      final res = await _Api.sendCpOtp(phone);
+      final res = await _Api.sendCpOtp(email);
       if (!mounted) return;
       if (res['ok'] == true) {
         setState(() { _step = 1; _loading = false; });
@@ -197,7 +197,7 @@ class _PWState extends State<ControlPanelPasswordDialog> {
           const Text('Control Panel', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
           const SizedBox(height: 4),
           Text(
-            _step == 0 ? 'OTP යවන්න phone number enter කරන්න'
+            _step == 0 ? 'OTP යවන්න email address enter කරන්න'
                 : _step == 1 ? 'SMS OTP code enter කරන්න'
                 : 'Dashboard password confirm කරන්න',
             style: const TextStyle(fontSize: 13, color: Colors.white54),
@@ -217,15 +217,15 @@ class _PWState extends State<ControlPanelPasswordDialog> {
                     ? const Color(0xFFFF4757).withOpacity(0.6)
                     : const Color(0xFF25D366).withOpacity(0.3))),
               child: TextField(
-                controller: _phoneCtrl,
+                controller: _emailCtrl,
                 autofocus: true,
-                keyboardType: TextInputType.phone,
+                keyboardType: TextInputType.emailAddress,
                 enabled: !_loading,
                 style: const TextStyle(color: Colors.white, fontSize: 15),
                 decoration: const InputDecoration(
-                  hintText: '+94xxxxxxxxx',
+                  hintText: 'example@gmail.com',
                   hintStyle: TextStyle(color: Colors.white30, fontSize: 14),
-                  prefixIcon: Icon(Icons.phone_rounded, color: Colors.white38, size: 20),
+                  prefixIcon: Icon(Icons.email_rounded, color: Colors.white38, size: 20),
                   border: InputBorder.none,
                   counterText: '',
                   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
@@ -275,7 +275,7 @@ class _PWState extends State<ControlPanelPasswordDialog> {
             const SizedBox(height: 10),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               GestureDetector(
-                onTap: _loading ? null : () => setState(() { _step = 0; _error = null; _otpCtrl.clear(); }),
+                onTap: _loading ? null : () => setState(() { _step = 0; _error = null; _otpCtrl.clear(); _emailCtrl.clear(); }),
                 child: const Text('← Back', style: TextStyle(color: Color(0xFF4A5280), fontSize: 13))),
               GestureDetector(
                 onTap: _loading ? null : _sendOtp,
