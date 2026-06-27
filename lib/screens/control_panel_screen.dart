@@ -20,6 +20,25 @@ class _Api {
     return data;
   }
 
+  static Future<Map<String, dynamic>> sendCpOtp() async {
+    final res = await http.post(Uri.parse('$base/api/cp/otp/send'),
+        headers: {'Content-Type': 'application/json'})
+        .timeout(const Duration(seconds: 15));
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> verifyCpOtp(String otp) async {
+    final res = await http.post(Uri.parse('$base/api/cp/otp/verify'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'otp': otp}))
+        .timeout(const Duration(seconds: 15));
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    if (data['ok'] == true) {
+      _cookie = res.headers['set-cookie'];
+    }
+    return data;
+  }
+
   static Map<String, String> get _h => {
     'Content-Type': 'application/json',
     if (_cookie != null) 'Cookie': _cookie!,
@@ -48,32 +67,47 @@ class _Api {
   static void logout() => _cookie = null;
 }
 
-// ── Password Dialog ───────────────────────────────────────────
+// ── Control Panel OTP Dialog ──────────────────────────────────
 class ControlPanelPasswordDialog extends StatefulWidget {
   const ControlPanelPasswordDialog({super.key});
   @override State<ControlPanelPasswordDialog> createState() => _PWState();
 }
 
 class _PWState extends State<ControlPanelPasswordDialog> {
-  final _ctrl = TextEditingController();
-  bool _loading = false, _obscure = true;
+  final _otpCtrl = TextEditingController();
+  bool _loading = false, _otpSent = false;
   String? _error;
 
-  @override void dispose() { _ctrl.dispose(); super.dispose(); }
+  @override void dispose() { _otpCtrl.dispose(); super.dispose(); }
 
-  Future<void> _login() async {
-    final pw = _ctrl.text.trim();
-    if (pw.isEmpty) { setState(() => _error = 'Password enter කරන්න'); return; }
+  Future<void> _sendOtp() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final res = await _Api.login(pw);
+      final res = await _Api.sendCpOtp();
+      if (!mounted) return;
+      if (res['ok'] == true) {
+        setState(() { _otpSent = true; _loading = false; });
+      } else {
+        setState(() { _error = res['error'] ?? 'OTP send failed.'; _loading = false; });
+      }
+    } catch (_) {
+      if (mounted) setState(() { _error = 'Server reach වෙන්නේ නැහැ.'; _loading = false; });
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    final otp = _otpCtrl.text.trim();
+    if (otp.length < 4) { setState(() => _error = 'Valid OTP enter කරන්න'); return; }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final res = await _Api.verifyCpOtp(otp);
       if (!mounted) return;
       if (res['ok'] == true) {
         Navigator.pop(context);
         navigatorKey.currentState?.push(
             MaterialPageRoute(builder: (_) => const ControlPanelScreen()));
       } else {
-        setState(() { _error = res['error'] ?? 'Password වැරදියි.'; _loading = false; });
+        setState(() { _error = res['error'] ?? 'Invalid OTP.'; _loading = false; });
       }
     } catch (_) {
       if (mounted) setState(() { _error = 'Server reach වෙන්නේ නැහැ.'; _loading = false; });
@@ -97,28 +131,80 @@ class _PWState extends State<ControlPanelPasswordDialog> {
           Container(width: 56, height: 56,
             decoration: const BoxDecoration(shape: BoxShape.circle,
               gradient: LinearGradient(colors: [Color(0xFF25D366), Color(0xFF00E5FF)])),
-            child: const Icon(Icons.lock_rounded, color: Colors.white, size: 26)),
+            child: Icon(_otpSent ? Icons.sms_rounded : Icons.lock_rounded, color: Colors.white, size: 26)),
           const SizedBox(height: 16),
           const Text('Control Panel', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
           const SizedBox(height: 4),
-          const Text('Dashboard password enter කරන්න', style: TextStyle(fontSize: 13, color: Colors.white54)),
+          Text(
+            _otpSent ? 'SMS OTP ඔබගේ phone එකට ආවා' : 'Login කරන්න SMS OTP එකක් ගන්න',
+            style: const TextStyle(fontSize: 13, color: Colors.white54),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 20),
-          Container(
-            decoration: BoxDecoration(color: const Color(0xFF0F1520),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _error != null
-                  ? const Color(0xFFFF4757).withOpacity(0.6)
-                  : const Color(0xFF25D366).withOpacity(0.2))),
-            child: TextField(controller: _ctrl, obscureText: _obscure, enabled: !_loading, autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
-              decoration: InputDecoration(
-                hintText: 'Enter password...', hintStyle: const TextStyle(color: Colors.white30, fontSize: 14),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.white38, size: 20),
-                  onPressed: () => setState(() => _obscure = !_obscure))),
-              onSubmitted: (_) => _login())),
+
+          if (!_otpSent) ...[
+            // Step 1: Send OTP button
+            SizedBox(width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _loading ? null : _sendOtp,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF25D366), foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 14), elevation: 0),
+                icon: _loading
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.send_rounded, size: 18),
+                label: Text(_loading ? 'Sending...' : 'Send OTP via SMS',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              )),
+          ] else ...[
+            // Step 2: OTP input
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F1520),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _error != null
+                    ? const Color(0xFFFF4757).withOpacity(0.6)
+                    : const Color(0xFF00E5FF).withOpacity(0.3))),
+              child: TextField(
+                controller: _otpCtrl,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                enabled: !_loading,
+                style: const TextStyle(color: Colors.white, fontSize: 18, letterSpacing: 6, fontWeight: FontWeight.w700),
+                textAlign: TextAlign.center,
+                decoration: const InputDecoration(
+                  hintText: '• • • • • •',
+                  hintStyle: TextStyle(color: Colors.white30, fontSize: 18, letterSpacing: 6),
+                  border: InputBorder.none,
+                  counterText: '',
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+                onSubmitted: (_) => _verifyOtp(),
+              )),
+            const SizedBox(height: 12),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              GestureDetector(
+                onTap: _loading ? null : () => setState(() { _otpSent = false; _error = null; _otpCtrl.clear(); }),
+                child: const Text('← Back', style: TextStyle(color: Color(0xFF4A5280), fontSize: 13))),
+              GestureDetector(
+                onTap: _loading ? null : _sendOtp,
+                child: const Text('🔄 Resend OTP', style: TextStyle(color: Color(0xFF25D366), fontSize: 13))),
+            ]),
+            const SizedBox(height: 16),
+            SizedBox(width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _loading ? null : _verifyOtp,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00E5FF), foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 14), elevation: 0),
+                child: _loading
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Verify OTP', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              )),
+          ],
+
           if (_error != null) ...[
             const SizedBox(height: 10),
             Row(children: [
@@ -126,22 +212,10 @@ class _PWState extends State<ControlPanelPasswordDialog> {
               const SizedBox(width: 6),
               Expanded(child: Text(_error!, style: const TextStyle(color: Color(0xFFFF4757), fontSize: 12))),
             ])],
-          const SizedBox(height: 20),
-          Row(children: [
-            Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context),
-              style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white24),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(vertical: 13)),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white54, fontSize: 13)))),
-            const SizedBox(width: 10),
-            Expanded(flex: 2, child: ElevatedButton(onPressed: _loading ? null : _login,
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366), foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(vertical: 13), elevation: 0),
-              child: _loading
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Login', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)))),
-          ]),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white38, fontSize: 13))),
         ]),
       ),
     );
