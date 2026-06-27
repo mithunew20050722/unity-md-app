@@ -11,7 +11,7 @@ class _PanelApi {
 
   static Future<Map<String, dynamic>> login(String password) async {
     final res = await http.post(
-      Uri.parse('$base/auth/login'),
+      Uri.parse('$base/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'password': password}),
     );
@@ -66,7 +66,7 @@ class _CPPasswordState extends State<ControlPanelPasswordDialog> {
     try {
       final res = await _PanelApi.login(pw);
       if (!mounted) return;
-      if (res['success'] == true) {
+      if (res['ok'] == true) {
         Navigator.pop(context);
         navigatorKey.currentState?.push(
             MaterialPageRoute(builder: (_) => const ControlPanelScreen()));
