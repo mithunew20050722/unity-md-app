@@ -20,9 +20,10 @@ class _Api {
     return data;
   }
 
-  static Future<Map<String, dynamic>> sendCpOtp() async {
+  static Future<Map<String, dynamic>> sendCpOtp(String phone) async {
     final res = await http.post(Uri.parse('$base/api/cp/otp/send'),
-        headers: {'Content-Type': 'application/json'})
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'phone': phone}))
         .timeout(const Duration(seconds: 15));
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
@@ -74,19 +75,29 @@ class ControlPanelPasswordDialog extends StatefulWidget {
 }
 
 class _PWState extends State<ControlPanelPasswordDialog> {
-  final _otpCtrl = TextEditingController();
-  bool _loading = false, _otpSent = false;
+  final _phoneCtrl = TextEditingController();
+  final _otpCtrl   = TextEditingController();
+  final _pwCtrl    = TextEditingController();
+  bool _loading = false, _obscure = true;
+  // step: 0=phone input, 1=otp input, 2=password input
+  int _step = 0;
   String? _error;
 
-  @override void dispose() { _otpCtrl.dispose(); super.dispose(); }
+  @override void dispose() {
+    _phoneCtrl.dispose(); _otpCtrl.dispose(); _pwCtrl.dispose();
+    super.dispose();
+  }
 
+  // Step 0 → send OTP
   Future<void> _sendOtp() async {
+    final phone = _phoneCtrl.text.trim();
+    if (phone.length < 7) { setState(() => _error = 'Valid phone number enter කරන්න'); return; }
     setState(() { _loading = true; _error = null; });
     try {
-      final res = await _Api.sendCpOtp();
+      final res = await _Api.sendCpOtp(phone);
       if (!mounted) return;
       if (res['ok'] == true) {
-        setState(() { _otpSent = true; _loading = false; });
+        setState(() { _step = 1; _loading = false; });
       } else {
         setState(() { _error = res['error'] ?? 'OTP send failed.'; _loading = false; });
       }
@@ -95,6 +106,7 @@ class _PWState extends State<ControlPanelPasswordDialog> {
     }
   }
 
+  // Step 1 → verify OTP
   Future<void> _verifyOtp() async {
     final otp = _otpCtrl.text.trim();
     if (otp.length < 4) { setState(() => _error = 'Valid OTP enter කරන්න'); return; }
@@ -103,15 +115,60 @@ class _PWState extends State<ControlPanelPasswordDialog> {
       final res = await _Api.verifyCpOtp(otp);
       if (!mounted) return;
       if (res['ok'] == true) {
-        Navigator.pop(context);
-        navigatorKey.currentState?.push(
-            MaterialPageRoute(builder: (_) => const ControlPanelScreen()));
+        setState(() { _step = 2; _loading = false; });
       } else {
         setState(() { _error = res['error'] ?? 'Invalid OTP.'; _loading = false; });
       }
     } catch (_) {
       if (mounted) setState(() { _error = 'Server reach වෙන්නේ නැහැ.'; _loading = false; });
     }
+  }
+
+  // Step 2 → verify password
+  Future<void> _verifyPassword() async {
+    final pw = _pwCtrl.text.trim();
+    if (pw.isEmpty) { setState(() => _error = 'Password enter කරන්න'); return; }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final res = await _Api.login(pw);
+      if (!mounted) return;
+      if (res['ok'] == true) {
+        Navigator.pop(context);
+        navigatorKey.currentState?.push(
+            MaterialPageRoute(builder: (_) => const ControlPanelScreen()));
+      } else {
+        setState(() { _error = res['error'] ?? 'Password වැරදියි.'; _loading = false; });
+      }
+    } catch (_) {
+      if (mounted) setState(() { _error = 'Server reach වෙන්නේ නැහැ.'; _loading = false; });
+    }
+  }
+
+  Widget _stepIndicator() {
+    final labels = ['Phone', 'OTP', 'Password'];
+    return Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(3, (i) {
+      final active = i == _step;
+      final done   = i < _step;
+      return Row(children: [
+        Container(width: 28, height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: done ? const Color(0xFF25D366)
+                : active ? const Color(0xFF00E5FF).withOpacity(0.2)
+                : Colors.white10,
+            border: Border.all(
+              color: done ? const Color(0xFF25D366)
+                  : active ? const Color(0xFF00E5FF)
+                  : Colors.white24, width: 1.5)),
+          child: Center(child: done
+              ? const Icon(Icons.check, color: Colors.white, size: 14)
+              : Text('${i+1}', style: TextStyle(
+                  color: active ? const Color(0xFF00E5FF) : Colors.white38,
+                  fontSize: 12, fontWeight: FontWeight.w700)))),
+        if (i < 2) Container(width: 24, height: 1.5,
+          color: i < _step ? const Color(0xFF25D366) : Colors.white12),
+      ]);
+    }));
   }
 
   @override
@@ -131,19 +188,50 @@ class _PWState extends State<ControlPanelPasswordDialog> {
           Container(width: 56, height: 56,
             decoration: const BoxDecoration(shape: BoxShape.circle,
               gradient: LinearGradient(colors: [Color(0xFF25D366), Color(0xFF00E5FF)])),
-            child: Icon(_otpSent ? Icons.sms_rounded : Icons.lock_rounded, color: Colors.white, size: 26)),
+            child: Icon(
+              _step == 0 ? Icons.phone_rounded
+                  : _step == 1 ? Icons.sms_rounded
+                  : Icons.lock_rounded,
+              color: Colors.white, size: 26)),
           const SizedBox(height: 16),
           const Text('Control Panel', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
           const SizedBox(height: 4),
           Text(
-            _otpSent ? 'SMS OTP ඔබගේ phone එකට ආවා' : 'Login කරන්න SMS OTP එකක් ගන්න',
+            _step == 0 ? 'OTP යවන්න phone number enter කරන්න'
+                : _step == 1 ? 'SMS OTP code enter කරන්න'
+                : 'Dashboard password confirm කරන්න',
             style: const TextStyle(fontSize: 13, color: Colors.white54),
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 16),
+          _stepIndicator(),
           const SizedBox(height: 20),
 
-          if (!_otpSent) ...[
-            // Step 1: Send OTP button
+          // ── Step 0: Phone input ──
+          if (_step == 0) ...[
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F1520),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _error != null
+                    ? const Color(0xFFFF4757).withOpacity(0.6)
+                    : const Color(0xFF25D366).withOpacity(0.3))),
+              child: TextField(
+                controller: _phoneCtrl,
+                autofocus: true,
+                keyboardType: TextInputType.phone,
+                enabled: !_loading,
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+                decoration: const InputDecoration(
+                  hintText: '+94xxxxxxxxx',
+                  hintStyle: TextStyle(color: Colors.white30, fontSize: 14),
+                  prefixIcon: Icon(Icons.phone_rounded, color: Colors.white38, size: 20),
+                  border: InputBorder.none,
+                  counterText: '',
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+                onSubmitted: (_) => _sendOtp(),
+              )),
+            const SizedBox(height: 16),
             SizedBox(width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _loading ? null : _sendOtp,
@@ -154,11 +242,13 @@ class _PWState extends State<ControlPanelPasswordDialog> {
                 icon: _loading
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                     : const Icon(Icons.send_rounded, size: 18),
-                label: Text(_loading ? 'Sending...' : 'Send OTP via SMS',
+                label: Text(_loading ? 'Sending...' : 'Send OTP',
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
               )),
-          ] else ...[
-            // Step 2: OTP input
+          ],
+
+          // ── Step 1: OTP input ──
+          if (_step == 1) ...[
             Container(
               decoration: BoxDecoration(
                 color: const Color(0xFF0F1520),
@@ -172,7 +262,7 @@ class _PWState extends State<ControlPanelPasswordDialog> {
                 keyboardType: TextInputType.number,
                 maxLength: 6,
                 enabled: !_loading,
-                style: const TextStyle(color: Colors.white, fontSize: 18, letterSpacing: 6, fontWeight: FontWeight.w700),
+                style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.w700),
                 textAlign: TextAlign.center,
                 decoration: const InputDecoration(
                   hintText: '• • • • • •',
@@ -182,10 +272,10 @@ class _PWState extends State<ControlPanelPasswordDialog> {
                   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
                 onSubmitted: (_) => _verifyOtp(),
               )),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               GestureDetector(
-                onTap: _loading ? null : () => setState(() { _otpSent = false; _error = null; _otpCtrl.clear(); }),
+                onTap: _loading ? null : () => setState(() { _step = 0; _error = null; _otpCtrl.clear(); }),
                 child: const Text('← Back', style: TextStyle(color: Color(0xFF4A5280), fontSize: 13))),
               GestureDetector(
                 onTap: _loading ? null : _sendOtp,
@@ -202,6 +292,47 @@ class _PWState extends State<ControlPanelPasswordDialog> {
                 child: _loading
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                     : const Text('Verify OTP', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              )),
+          ],
+
+          // ── Step 2: Password input ──
+          if (_step == 2) ...[
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F1520),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _error != null
+                    ? const Color(0xFFFF4757).withOpacity(0.6)
+                    : const Color(0xFF25D366).withOpacity(0.3))),
+              child: TextField(
+                controller: _pwCtrl,
+                autofocus: true,
+                obscureText: _obscure,
+                enabled: !_loading,
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+                decoration: InputDecoration(
+                  hintText: 'Dashboard password...',
+                  hintStyle: const TextStyle(color: Colors.white30, fontSize: 14),
+                  prefixIcon: const Icon(Icons.lock_rounded, color: Colors.white38, size: 20),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                        color: Colors.white38, size: 20),
+                    onPressed: () => setState(() => _obscure = !_obscure)),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+                onSubmitted: (_) => _verifyPassword(),
+              )),
+            const SizedBox(height: 16),
+            SizedBox(width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _loading ? null : _verifyPassword,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF25D366), foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 14), elevation: 0),
+                child: _loading
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Login', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
               )),
           ],
 
@@ -521,6 +652,8 @@ class _SessionsTabState extends State<_SessionsTab> {
               const SizedBox(height: 12),
               // Action buttons
               Wrap(spacing: 8, runSpacing: 8, children: [
+                if (isStopped)
+                  _actionBtn('Start', Icons.play_arrow_rounded, const Color(0xFF25D366), () => _action(userId, 'restart')),
                 if (!isStopped && !isBlocked)
                   _actionBtn('Stop', Icons.pause_rounded, Colors.white38, () => _action(userId, 'stop')),
                 if (!isStopped && !isBlocked)
